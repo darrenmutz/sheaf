@@ -15,13 +15,13 @@ Sheaf is a static blogging engine.
 Sheaf expects configuration to be located in a file called '.sheaf' in
 your home directory. This file should contain the following settings;
 
-(def ^:dynamic *config* {:sheaf-root "/path-to-datastore-home/sheaf"
-                         :archive-dir "dir-to-store-archive-metadata"
-                         :template-file "your-template.html"
-                         :doc-root "/path-to-output-htdocs"
-                         :max-home-page-articles 20
-                         :articles-node :section 
-			 :article-node :article})
+(def ^:dynamic *config* { :sheaf-root "/path-to-datastore-home/sheaf"
+                          :archive-dir "dir-to-store-archive-metadata"
+                          :template-file "your-template.html"
+                          :articles-node :section 
+			  :article-node :article
+                          :doc-root "/path-to-output-htdocs"
+                          :max-home-page-articles 20 })
 
 ## License
 
