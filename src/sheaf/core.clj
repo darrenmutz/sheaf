@@ -1,4 +1,4 @@
-;; Copyright (c) 2011, Darren Mutz
+;; Copyright (c) 2012, Darren Mutz
 ;; All rights reserved.
 ;;
 ;; Redistribution and use in source and binary forms, with or without
@@ -61,13 +61,8 @@
 (defn fetch-content [url]
     (html/html-resource (java.net.URL. url)))
 
-(html/deftemplate templatize (fetch-content *template-url*)
-  [ctxt] [(*config* :articles-node)] ctxt)
-
-(defn style-articles [& article-urls]
-  (templatize
-   (apply html/content
-          (map #(html/select (fetch-content %) [(*config* :articles-node)]) article-urls))))
+(html/deftemplate article-template (fetch-content *template-url*) [articles]
+  [(*config* :articles-node)] (apply html/content articles))
 
 (defn try-write [filename content]
   (do
@@ -95,8 +90,10 @@
                                                 :publish-time (.getMillis now)
                                                 :relative-path relative-path})))
           (try-write (str (*config* :doc-root) "/" relative-path)
-                     (apply str (style-articles article-url))))
-        true))))
+                     (apply str (article-template
+                                 (html/select (fetch-content article-url)
+                                              [(*config* :article-node)]))))
+        true)))))
 
 (defn not-implemented [option]
   (println "Option '" option "' is not yet implemented")
@@ -136,16 +133,18 @@
          (cons (first articles) (archives-to-seq (rest articles) (rest archives))))
        nil))))
 
+(defn- get-sorted-archives []
+  (sort #(compare (%1 :datetime) (%2 :datetime))
+        (map annotated-archive-from-file (dir-list *archive-root*))))
+
 (defn generate-index [now max-articles]
-  (let [archive-files (dir-list *archive-root*)
-        annotated-archives (map annotated-archive-from-file archive-files)
-        sorted-archives (sort #(compare (%1 :datetime) (%2 :datetime)) annotated-archives)
-        articles (take max-articles (archives-to-seq nil sorted-archives))]
+  (let [sorted-archives (get-sorted-archives)
+        articles (take max-articles (archives-to-seq nil sorted-archives))
+        article-urls (map #(str "file:///" (*config* :doc-root) "/" (% :relative-path)) articles)
+        article-contents (map fetch-content article-urls)
+        article-nodes (map #(html/select % [(*config* :article-node)]) article-contents)]
     (try-write (str (*config* :doc-root) "/index.html")
-               (apply str
-                      (apply style-articles
-                             (map #(str "file:///" (*config* :doc-root) "/" (% :relative-path))
-                                  articles))))))
+               (apply str (article-template article-nodes)))))
 
 (defn -main [& args]
   (let [[options args usage]
@@ -165,5 +164,7 @@
     (if (options :delete)
       (not-implemented "--delete"))
     (if (and (options :title) (options :html))
-      (if (publish-article now (options :title) (str "file:///" (options :html)))
-        (generate-index now (*config* :max-home-page-articles))))))
+      (do
+        (println "title: " (options :title) ", " "html: " (options :html))
+        (if (publish-article now (options :title) (str "file:///" (options :html)))
+          (generate-index now (*config* :max-home-page-articles)))))))
