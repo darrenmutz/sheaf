@@ -12,6 +12,17 @@ Sheaf is a static blogging engine.
  -t, --title                           Article title, ex: my-article-title
  -h, --html                            File containing html article, ex: path/to/article.html
 
+Sheaf expects configuration to be located in a file called '.sheaf' in
+your home directory. This file should contain the following settings;
+
+(def ^:dynamic *config* {:sheaf-root "/path-to-datastore-home/sheaf"
+                         :archive-dir "dir-to-store-archive-metadata"
+                         :template-file "your-template.html"
+                         :doc-root "/path-to-output-htdocs"
+                         :max-home-page-articles 20
+                         :articles-node :section 
+			 :article-node :article})
+
 ## License
 
 Copyright (c) 2011, Darren Mutz

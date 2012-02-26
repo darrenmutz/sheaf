@@ -133,7 +133,7 @@
          (cons (first articles) (archives-to-seq (rest articles) (rest archives))))
        nil))))
 
-(defn- get-sorted-archives []
+(defn get-sorted-archives []
   (sort #(compare (%1 :datetime) (%2 :datetime))
         (map annotated-archive-from-file (dir-list *archive-root*))))
 
