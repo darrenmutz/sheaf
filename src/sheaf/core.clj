@@ -4,6 +4,7 @@
 ;; Redistribution and use in source and binary forms, with or without
 ;; modification, are permitted provided that the following conditions
 ;; are met:
+;;
 ;;   * Redistributions of source code must retain the above copyright
 ;;     notice, this list of conditions and the following disclaimer.
 ;;   * Redistributions in binary form must reproduce the above
@@ -59,10 +60,14 @@
   (contains? (apply sorted-set (map :title archive)) title))
 
 (defn fetch-content [url]
-    (html/html-resource (java.net.URL. url)))
+  (html/html-resource (java.net.URL. url)))
 
-(html/deftemplate article-template (fetch-content *template-url*) [articles]
-  [(*config* :articles-node)] (apply html/content articles))
+(html/deftemplate article-template (fetch-content *template-url*) [article datetime]
+  (*config* :articles-selector) (apply html/content article)
+  (*config* :time-selector) (html/set-attr "datetime" (.toString datetime)))
+
+(html/deftemplate index-template (fetch-content *template-url*) [articles]
+  (*config* :articles-selector) (apply html/content articles))
 
 (defn try-write [filename content]
   (do
@@ -92,7 +97,8 @@
           (try-write (str (*config* :doc-root) "/" relative-path)
                      (apply str (article-template
                                  (html/select (fetch-content article-url)
-                                              [(*config* :article-node)]))))
+                                              [:p])
+                                 now)))
         true)))))
 
 (defn not-implemented [option]
@@ -142,9 +148,9 @@
         articles (take max-articles (archives-to-seq nil sorted-archives))
         article-urls (map #(str "file:///" (*config* :doc-root) "/" (% :relative-path)) articles)
         article-contents (map fetch-content article-urls)
-        article-nodes (map #(html/select % [(*config* :article-node)]) article-contents)]
+        article-nodes (map #(html/select % [:article-selector]) article-contents)]
     (try-write (str (*config* :doc-root) "/index.html")
-               (apply str (article-template article-nodes)))))
+               (apply str (index-template article-nodes)))))
 
 (defn -main [& args]
   (let [[options args usage]
@@ -164,7 +170,6 @@
     (if (options :delete)
       (not-implemented "--delete"))
     (if (and (options :title) (options :html))
-      (do
-        (println "title: " (options :title) ", " "html: " (options :html))
-        (if (publish-article now (options :title) (str "file:///" (options :html)))
-          (generate-index now (*config* :max-home-page-articles)))))))
+      (if (publish-article now (options :title) (str "file:///" (options :html)))
+        (generate-index now (*config* :max-home-page-articles))))))
+

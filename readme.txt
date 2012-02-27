@@ -18,8 +18,9 @@ your home directory. This file should contain the following settings;
 (def ^:dynamic *config* { :sheaf-root "/path-to-datastore-home/sheaf"
                           :archive-dir "dir-to-store-archive-metadata"
                           :template-file "your-template.html"
-                          :articles-node :section 
-			  :article-node :article
+                          :articles-selector [:section :article :body]
+			  :article-selector [:article]
+			  :time-selector [:time] 
                           :doc-root "/path-to-output-htdocs"
                           :max-home-page-articles 20 })
 
