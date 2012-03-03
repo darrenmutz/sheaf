@@ -56,14 +56,15 @@
     (seq (read-json (slurp filename)))
     (catch java.io.FileNotFoundException e [])))
   
-(defn article-exists? [archive title]
-  (contains? (apply sorted-set (map :title archive)) title))
+(defn article-exists? [archive slug]
+  (contains? (apply sorted-set (map :slug archive)) slug))
 
 (defn fetch-content [url]
   (html/html-resource (java.net.URL. url)))
 
-(html/deftemplate article-template (fetch-content *template-url*) [article datetime]
+(html/deftemplate article-template (fetch-content *template-url*) [article title datetime]
   (*config* :articles-selector) (apply html/content article)
+  (*config* :title-selector) (html/content title)
   (*config* :time-selector) (html/set-attr "datetime" (.toString datetime)))
 
 (html/deftemplate index-template (fetch-content *template-url*) [articles]
@@ -81,23 +82,25 @@
           (println "Couldn't write to" filename)
           (. System (exit 1)))))))
 
-(defn publish-article [now title article-url]
+(defn publish-article [now slug title article-url]
   (let [year (.getYear now)
         month (.getAsShortText (.monthOfYear now))
         archive (read-archive (get-archive-filename month year))]
-    (if (article-exists? archive title)
+    (if (article-exists? archive slug)
       (println "Can't publish an article that already exists.")
       (do
-        (let [relative-path (str month "-" year "/" title ".html")]
+        (let [relative-path (str month "-" year "/" slug ".html")]
           (try-write (get-archive-filename month year)
                      (json-str (insert-article archive
-                                               {:title title
+                                               {:slug slug
+                                                :title title
                                                 :publish-time (.getMillis now)
                                                 :relative-path relative-path})))
           (try-write (str (*config* :doc-root) "/" relative-path)
                      (apply str (article-template
                                  (html/select (fetch-content article-url)
                                               [:p])
+                                 title
                                  now)))
         true)))))
 
@@ -158,7 +161,8 @@
              ["-p" "--publish" "Publish an article" :flag true]
              ["-r" "--revise"  "Revise an article" :flag true]
              ["-d" "--delete"  "Delete an article" :flag true]
-             ["-t" "--title"   "Article title, ex: my-article-title"]
+             ["-s" "--slug"    "Article slug, ex: my-article-title"]
+             ["-t" "--title"   "Article title, ex: \"My article title\""]
              ["-h" "--html"    "File containing html article, ex: path/to/article.html"])
         now (DateTime.)]
     (if (not (reduce #(or %1 %2) (map options [:publish :revise :delete])))
@@ -170,6 +174,6 @@
     (if (options :delete)
       (not-implemented "--delete"))
     (if (and (options :title) (options :html))
-      (if (publish-article now (options :title) (str "file:///" (options :html)))
+      (if (publish-article now (options :slug) (options :title) (str "file:///" (options :html)))
         (generate-index now (*config* :max-home-page-articles))))))
 

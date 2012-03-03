@@ -20,13 +20,14 @@ your home directory. This file should contain the following settings;
                           :template-file "your-template.html"
                           :articles-selector [:section :article :body]
 			  :article-selector [:article]
+			  :title-selector [:article :h2]
 			  :time-selector [:time] 
                           :doc-root "/path-to-output-htdocs"
                           :max-home-page-articles 20 })
 
 ## License
 
-Copyright (c) 2011, Darren Mutz
+Copyright (c) 2012, Darren Mutz
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
