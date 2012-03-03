@@ -62,9 +62,18 @@
 (defn fetch-content [url]
   (html/html-resource (java.net.URL. url)))
 
+(defn long-form-date [datetime]
+  (.print (.toFormatter (.appendYear
+                         (.appendLiteral
+                          (.appendDayOfMonth
+                           (.appendLiteral
+                            (.appendMonthOfYearText (DateTimeFormatterBuilder.)) " ") 1) ", ") 4 4))
+          datetime))
+
 (html/deftemplate article-template (fetch-content *template-url*) [article title datetime]
   (*config* :articles-selector) (apply html/content article)
   (*config* :title-selector) (html/content title)
+  (*config* :time-selector) (html/content (long-form-date datetime))
   (*config* :time-selector) (html/set-attr "datetime" (.toString datetime)))
 
 (html/deftemplate index-template (fetch-content *template-url*) [articles]
@@ -111,7 +120,8 @@
 (defn datetime-from-month-year [month-year-string]
   (if-let [[match month year] (re-find #"([A-Z][a-z]+)-([0-9]+)" month-year-string)]
     (let [builder (DateTimeFormatterBuilder.)
-          custom-builder (.builder (.appendYear (.appendLiteral (.appendMonthOfYearShortText builder)) "-") 4 4)
+          custom-builder (.builder (.appendYear (.appendLiteral (.appendMonthOfYearShortText builder)) "-")
+                                   4 4)
           formatter (.toFormatter custom-builder)]
       (.parseDateTime formatter month-year-string)))
   nil)
