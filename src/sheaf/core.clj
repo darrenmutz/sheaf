@@ -79,7 +79,7 @@
   (*config* :permalink-selector) (set-attr "href" permalink))
 
 (deftemplate index-template (fetch-content *template-url*) [articles]
-  (*config* :articles-selector) (apply content articles))
+  (*config* :index-articles-selector) (apply content articles))
 
 (defn try-write [filename content]
   (do
@@ -163,7 +163,7 @@
         articles (take max-articles (archives-to-seq nil sorted-archives))
         article-urls (map #(str "file:///" (*config* :doc-root) "/" (% :relative-path)) articles)
         article-contents (map fetch-content article-urls)
-        article-nodes (map #(select % [:article-selector]) article-contents)]
+        article-nodes (map #(select % (*config* :article-selector)) article-contents)]
     (try-write (str (*config* :doc-root) "/index.html")
                (apply str (index-template article-nodes)))))
 
