@@ -23,6 +23,7 @@ your home directory. This file should contain the following settings;
 			  :title-selector [:article :h2]
 			  :time-selector [:time] 
                           :doc-root "/path-to-output-htdocs"
+			  :uri-root "http://www.mydomain.com/"
                           :max-home-page-articles 20 })
 
 ## License

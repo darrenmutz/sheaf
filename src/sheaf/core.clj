@@ -35,7 +35,8 @@
   (:use clojure.java.io)
   (:use clojure.tools.cli)
   (:use [clojure.data.json :only (json-str write-json read-json)])
-  (:require [net.cgrand.enlive-html :as html]))
+  (:use [net.cgrand.enlive-html :only (deftemplate content set-attr
+                                       html-resource select)]))
 
 (load-file (str (System/getProperty (str "user.home")) "/.sheaf"))
 
@@ -60,7 +61,7 @@
   (contains? (apply sorted-set (map :slug archive)) slug))
 
 (defn fetch-content [url]
-  (html/html-resource (java.net.URL. url)))
+  (html-resource (java.net.URL. url)))
 
 (defn long-form-date [datetime]
   (.print (.toFormatter (.appendYear
@@ -70,14 +71,15 @@
                             (.appendMonthOfYearText (DateTimeFormatterBuilder.)) " ") 1) ", ") 4 4))
           datetime))
 
-(html/deftemplate article-template (fetch-content *template-url*) [article title datetime]
-  (*config* :articles-selector) (apply html/content article)
-  (*config* :title-selector) (html/content title)
-  (*config* :time-selector) (html/content (long-form-date datetime))
-  (*config* :time-selector) (html/set-attr "datetime" (.toString datetime)))
+(deftemplate article-template (fetch-content *template-url*) [article title datetime permalink]
+  (*config* :articles-selector)  (apply content article)
+  (*config* :title-selector)     (content title)
+  (*config* :time-selector)      (content (long-form-date datetime))
+  (*config* :time-selector)      (set-attr "datetime" (.toString datetime))
+  (*config* :permalink-selector) (set-attr "href" permalink))
 
-(html/deftemplate index-template (fetch-content *template-url*) [articles]
-  (*config* :articles-selector) (apply html/content articles))
+(deftemplate index-template (fetch-content *template-url*) [articles]
+  (*config* :articles-selector) (apply content articles))
 
 (defn try-write [filename content]
   (do
@@ -97,21 +99,21 @@
         archive (read-archive (get-archive-filename month year))]
     (if (article-exists? archive slug)
       (println "Can't publish an article that already exists.")
-      (do
-        (let [relative-path (str month "-" year "/" slug ".html")]
-          (try-write (get-archive-filename month year)
-                     (json-str (insert-article archive
-                                               {:slug slug
-                                                :title title
-                                                :publish-time (.getMillis now)
-                                                :relative-path relative-path})))
-          (try-write (str (*config* :doc-root) "/" relative-path)
-                     (apply str (article-template
-                                 (html/select (fetch-content article-url)
-                                              [:p])
-                                 title
-                                 now)))
-        true)))))
+      (let [relative-path (str month "-" year "/" slug ".html")]
+        (try-write (get-archive-filename month year)
+                   (json-str (insert-article archive
+                                             {:slug slug
+                                              :title title
+                                              :publish-time (.getMillis now)
+                                              :relative-path relative-path})))
+        (try-write (str (*config* :doc-root) "/" relative-path)
+                   (apply str (article-template
+                               (select (fetch-content article-url)
+                                       [:p])
+                               title
+                               now
+                               (str (*config* :uri-root) relative-path))))
+        true))))
 
 (defn not-implemented [option]
   (println "Option '" option "' is not yet implemented")
@@ -161,7 +163,7 @@
         articles (take max-articles (archives-to-seq nil sorted-archives))
         article-urls (map #(str "file:///" (*config* :doc-root) "/" (% :relative-path)) articles)
         article-contents (map fetch-content article-urls)
-        article-nodes (map #(html/select % [:article-selector]) article-contents)]
+        article-nodes (map #(select % [:article-selector]) article-contents)]
     (try-write (str (*config* :doc-root) "/index.html")
                (apply str (index-template article-nodes)))))
 
