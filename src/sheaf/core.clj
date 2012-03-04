@@ -93,9 +93,16 @@
           (println "Couldn't write to" filename)
           (. System (exit 1)))))))
 
+(defn get-year-month-millis [now]
+  (hash-map :year   (.getYear now)
+            :month  (.getAsShortText (.monthOfYear now))
+            :millis (.getMillis now)))
+
 (defn publish-article [now slug title article-url]
-  (let [year (.getYear now)
-        month (.getAsShortText (.monthOfYear now))
+  (let [ymm (get-year-month-millis now)
+        year (ymm :year)
+        month (ymm :month)
+        millis (ymm :millis)
         archive (read-archive (get-archive-filename month year))]
     (if (article-exists? archive slug)
       (println "Can't publish an article that already exists.")
@@ -104,7 +111,7 @@
                    (json-str (insert-article archive
                                              {:slug slug
                                               :title title
-                                              :publish-time (.getMillis now)
+                                              :publish-time millis
                                               :relative-path relative-path})))
         (try-write (str (*config* :doc-root) "/" relative-path)
                    (apply str (article-template
@@ -158,15 +165,23 @@
   (sort #(compare (%1 :datetime) (%2 :datetime))
         (map annotated-archive-from-file (dir-list *archive-root*))))
 
-(defn generate-index [now max-articles]
-  (let [sorted-archives (get-sorted-archives)
-        articles (take max-articles (archives-to-seq nil sorted-archives))
-        article-urls (map #(str "file:///" (*config* :doc-root) "/" (% :relative-path)) articles)
+(defn generate-index [articles target-dir]
+  (let [article-urls (map #(str "file:///" (*config* :doc-root) "/" (% :relative-path)) articles)
         article-contents (map fetch-content article-urls)
         article-nodes (map #(select % (*config* :article-selector)) article-contents)]
-    (try-write (str (*config* :doc-root) "/index.html")
+    (try-write (str target-dir "/index.html")
                (apply str (index-template article-nodes)))))
 
+(defn generate-indices [now max-root-articles]
+  (let [ymm (get-year-month-millis now)
+        year (ymm :year)
+        month (ymm :month)
+        sorted-archives (get-sorted-archives)
+        this-months-articles (archives-to-seq nil (vector (first sorted-archives)))
+        all-articles (archives-to-seq nil sorted-archives)]
+    (generate-index this-months-articles (str (*config* :doc-root) "/" month "-" year))
+    (generate-index (take max-root-articles all-articles) (*config* :doc-root))))
+        
 (defn -main [& args]
   (let [[options args usage]
         (cli args
@@ -187,5 +202,5 @@
       (not-implemented "--delete"))
     (if (and (options :title) (options :html))
       (if (publish-article now (options :slug) (options :title) (str "file:///" (options :html)))
-        (generate-index now (*config* :max-home-page-articles))))))
+        (generate-indices now (*config* :max-home-page-articles))))))
 
