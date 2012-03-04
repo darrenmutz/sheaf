@@ -20,11 +20,11 @@ your home directory. This file should contain the following settings;
                           :template-file "your-template.html"
                           :articles-selector [:section :article :body]
 			  :article-selector [:article]
-			  :index-articles-selector [:section]
+			  :index-articles-selector [:section.articles]
 			  :title-selector [:article :h2]
 			  :time-selector [:time] 
 			  :permalink-selector [:article :header :p :a]
-			  :archive-list-selector [:archive-list]
+			  :archive-list-selector [:.archive-list]
                           :doc-root "/path-to-output-htdocs"
 			  :uri-root "http://www.mydomain.com/"
                           :max-home-page-articles 20 })
