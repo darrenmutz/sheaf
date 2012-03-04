@@ -35,8 +35,8 @@
   (:use clojure.java.io)
   (:use clojure.tools.cli)
   (:use [clojure.data.json :only (json-str write-json read-json)])
-  (:use [net.cgrand.enlive-html :only (deftemplate content set-attr
-                                       html-resource select)]))
+  (:use [net.cgrand.enlive-html :only (deftemplate defsnippet content set-attr do->
+                                       first-child html-resource select nth-of-type)]))
 
 (load-file (str (System/getProperty (str "user.home")) "/.sheaf"))
 
@@ -78,8 +78,17 @@
   (*config* :time-selector)      (set-attr "datetime" (.toString datetime))
   (*config* :permalink-selector) (set-attr "href" permalink))
 
-(deftemplate index-template (fetch-content *template-url*) [articles]
-  (*config* :index-articles-selector) (apply content articles))
+(def *link-sel* [[:.archive-list (nth-of-type 1)] :> first-child])
+
+(defsnippet link-model (fetch-content *template-url*) *link-sel*
+  [{:keys [month year]}]
+  [:a] (do->
+        (content (str month " " year))
+        (set-attr :href (str "/" month "-" year))))
+
+(deftemplate index-template (fetch-content *template-url*) [articles archive-month-years]
+  (*config* :index-articles-selector) (apply content articles)
+  (*config* :archive-list-selector)   (content (map link-model archive-month-years)))
 
 (defn try-write [filename content]
   (do
@@ -165,22 +174,25 @@
   (sort #(compare (%1 :datetime) (%2 :datetime))
         (map annotated-archive-from-file (dir-list *archive-root*))))
 
-(defn generate-index [articles target-dir]
+(defn generate-index [articles target-dir archive-month-years]
   (let [article-urls (map #(str "file:///" (*config* :doc-root) "/" (% :relative-path)) articles)
         article-contents (map fetch-content article-urls)
         article-nodes (map #(select % (*config* :article-selector)) article-contents)]
     (try-write (str target-dir "/index.html")
-               (apply str (index-template article-nodes)))))
+               (apply str (index-template article-nodes archive-month-years)))))
 
 (defn generate-indices [now max-root-articles]
   (let [ymm (get-year-month-millis now)
         year (ymm :year)
         month (ymm :month)
         sorted-archives (get-sorted-archives)
+        archive-month-years (map #(select-keys % [:month :year]) sorted-archives)
         this-months-articles (archives-to-seq nil (vector (first sorted-archives)))
         all-articles (archives-to-seq nil sorted-archives)]
-    (generate-index this-months-articles (str (*config* :doc-root) "/" month "-" year))
-    (generate-index (take max-root-articles all-articles) (*config* :doc-root))))
+    (generate-index this-months-articles (str (*config* :doc-root) "/" month "-" year)
+                    archive-month-years)
+    (generate-index (take max-root-articles all-articles) (*config* :doc-root)
+                    archive-month-years)))
         
 (defn -main [& args]
   (let [[options args usage]
