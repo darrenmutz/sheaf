@@ -6,11 +6,14 @@ Sheaf is a static blogging engine.
 
  Switches                     Default  Desc
  --------                     -------  ----
- -p, --no-publish, --publish  false    Publish an article
- -r, --no-revise, --revise    false    Revise an article
- -d, --no-delete, --delete    false    Delete an article
- -t, --title                           Article title, ex: my-article-title
- -h, --html                            File containing html article, ex: path/to/article.html
+ -p, --no-publish, --publish  false    Publish an article                                     
+ -r, --no-revise, --revise    false    Revise an article                                      
+ -d, --no-delete, --delete    false    Delete an article                                      
+ -s, --slug                            Article slug, ex: my-article-title                     
+ -t, --title                           Article title, ex: "My article title"                  
+ -l, --link                            Title is an offsite link, ex: "http://www.noaa.gov"    
+ -h, --html                            File containing html article, ex: path/to/article.html 
+
 
 Sheaf expects configuration to be located in a file called '.sheaf' in
 your home directory. This file should contain the following settings;
