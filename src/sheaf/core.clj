@@ -111,6 +111,41 @@
             :month  (.getAsShortText (.monthOfYear now))
             :millis (.getMillis now)))
 
+(defn get-relative-path [month year slug]
+  (str month "-" year "/" slug ".html"))
+
+(defn update-title [archive slug title]
+  (map #(if (= (% :slug) slug) (assoc % :title title) %) archive))
+
+(defn get-publish-time [archive slug]
+  (loop [remainder archive]
+    (if (empty? remainder)
+      nil
+      (if (= ((first remainder) :slug) slug)
+        ((first remainder) :publish-time)
+        (recur (rest remainder))))))
+
+(defn write-article [relative-path article-url title publish-time link archive slug]
+  (try-write (str (*config* :doc-root) "/" relative-path)
+             (apply str (article-template
+                         (select (fetch-content article-url)
+                                 (*config* :input-article-selector))
+                         title
+                         publish-time
+                         (str "/" relative-path)
+                         link))))
+  
+(defn revise-article [month year slug title article-url link]
+  (let [archive (read-archive (get-archive-filename month year))]
+    (if (article-exists? archive slug)
+      (let [relative-path (get-relative-path month year slug)]
+        (try-write (get-archive-filename month year)
+                   (json-str (update-title archive slug title)))
+        (write-article relative-path article-url title (get-publish-time archive slug)
+                       link archive slug)
+        true)
+      (println "Can't revise an article that doesn't exist."))))
+
 (defn publish-article [now slug title article-url link]
   (let [ymm (get-year-month-millis now)
         year (ymm :year)
@@ -119,21 +154,14 @@
         archive (read-archive (get-archive-filename month year))]
     (if (article-exists? archive slug)
       (println "Can't publish an article that already exists.")
-      (let [relative-path (str month "-" year "/" slug ".html")]
+      (let [relative-path (get-relative-path month year slug)]
         (try-write (get-archive-filename month year)
                    (json-str (insert-article archive
                                              {:slug slug
                                               :title title
                                               :publish-time millis
                                               :relative-path relative-path})))
-        (try-write (str (*config* :doc-root) "/" relative-path)
-                   (apply str (article-template
-                               (select (fetch-content article-url)
-                                       (*config* :input-article-selector))
-                               title
-                               now
-                               (str "/" relative-path)
-                               link)))
+        (write-article relative-path article-url title now link archive slug)
         true))))
 
 (defn not-implemented [option]
@@ -204,6 +232,8 @@
         (cli args
              ["-p" "--publish" "Publish an article" :flag true]
              ["-r" "--revise"  "Revise an article" :flag true]
+             ["-m" "--month"   "Month an article to revise was published in"]
+             ["-y" "--year"    "Year an article to revise was published in"]
              ["-d" "--delete"  "Delete an article" :flag true]
              ["-s" "--slug"    "Article slug, ex: my-article-title"]
              ["-t" "--title"   "Article title, ex: \"My article title\""]
@@ -214,14 +244,19 @@
       (do
         (println usage)
         (. System (exit 1))))
-    (if (options :revise)
-      (not-implemented "--revise"))
     (if (options :delete)
       (not-implemented "--delete"))
-    (if (and (options :title) (options :html))
-      (if (publish-article now
-                           (options :slug)
-                           (options :title)
-                           (str "file:///" (options :html))
-                           (options :link))
-        (generate-indices now (*config* :max-home-page-articles))))))
+    (if (options :revise)
+      (let [slug (options :slug)
+            title (options :title)
+            html (options :html)
+            month (options :month)
+            year (options :year)]
+        (if (revise-article month year slug title (str "file:///" html) (options :link))
+          (generate-indices now (*config* :max-home-page-articles)))))
+    (if (options :publish)
+      (let [slug (options :slug)
+            title (options :title)
+            html (options :html)]
+        (if (publish-article now slug title (str "file:///" html) (options :link))
+          (generate-indices now (*config* :max-home-page-articles)))))))

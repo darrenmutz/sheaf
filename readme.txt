@@ -7,7 +7,9 @@ Sheaf is a static blogging engine.
  Switches                     Default  Desc
  --------                     -------  ----
  -p, --no-publish, --publish  false    Publish an article                                     
- -r, --no-revise, --revise    false    Revise an article                                      
+ -r, --no-revise, --revise    false    Revise an article
+ -m, --month                           Month an article to revise was published in
+ -y, --year                            Year an article to revise was published in
  -d, --no-delete, --delete    false    Delete an article                                      
  -s, --slug                            Article slug, ex: my-article-title                     
  -t, --title                           Article title, ex: "My article title"                  
