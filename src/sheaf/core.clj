@@ -71,13 +71,6 @@
                             (.appendMonthOfYearText (DateTimeFormatterBuilder.)) " ") 1) ", ") 4 4))
           datetime))
 
-(deftemplate article-template (fetch-content *template-url*) [article title datetime permalink]
-  (*config* :articles-selector)  (apply content article)
-  (*config* :title-selector)     (content title)
-  (*config* :time-selector)      (content (long-form-date datetime))
-  (*config* :time-selector)      (set-attr "datetime" (.toString datetime))
-  (*config* :permalink-selector) (set-attr "href" permalink))
-
 (def *link-sel* [[:.archive-list (nth-of-type 1)] :> first-child])
 
 (defsnippet link-model (fetch-content *template-url*) *link-sel*
@@ -85,6 +78,15 @@
   [:a] (do->
         (content (str month " " year))
         (set-attr :href (str "/" month "-" year))))
+
+(deftemplate article-template (fetch-content *template-url*) [article title datetime permalink link]
+  (*config* :articles-selector)  (apply content article)
+  (*config* :title-selector)     (content title)
+  (*config* :title-selector)     (set-attr :href (if link link permalink))
+  (*config* :title-selector)     (set-attr :id (if link "link" "permalink"))
+  (*config* :time-selector)      (content (long-form-date datetime))
+  (*config* :time-selector)      (set-attr "datetime" (.toString datetime))
+  (*config* :permalink-selector) (set-attr "href" permalink))
 
 (deftemplate index-template (fetch-content *template-url*) [articles archive-month-years]
   (*config* :index-articles-selector) (apply content articles)
@@ -107,7 +109,7 @@
             :month  (.getAsShortText (.monthOfYear now))
             :millis (.getMillis now)))
 
-(defn publish-article [now slug title article-url]
+(defn publish-article [now slug title article-url link]
   (let [ymm (get-year-month-millis now)
         year (ymm :year)
         month (ymm :month)
@@ -128,7 +130,8 @@
                                        [:p])
                                title
                                now
-                               (str "/" relative-path))))
+                               (str "/" relative-path)
+                               link)))
         true))))
 
 (defn not-implemented [option]
@@ -202,6 +205,7 @@
              ["-d" "--delete"  "Delete an article" :flag true]
              ["-s" "--slug"    "Article slug, ex: my-article-title"]
              ["-t" "--title"   "Article title, ex: \"My article title\""]
+             ["-l" "--link"    "Title is an offsite link, ex: \"http://www.noaa.gov\""]
              ["-h" "--html"    "File containing html article, ex: path/to/article.html"])
         now (DateTime.)]
     (if (not (reduce #(or %1 %2) (map options [:publish :revise :delete])))
@@ -213,5 +217,9 @@
     (if (options :delete)
       (not-implemented "--delete"))
     (if (and (options :title) (options :html))
-      (if (publish-article now (options :slug) (options :title) (str "file:///" (options :html)))
+      (if (publish-article now
+                           (options :slug)
+                           (options :title)
+                           (str "file:///" (options :html))
+                           (options :link))
         (generate-indices now (*config* :max-home-page-articles))))))
