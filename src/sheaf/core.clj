@@ -119,7 +119,7 @@
                                        [:p])
                                title
                                now
-                               (str (*config* :uri-root) relative-path))))
+                               (str "/" relative-path))))
         true))))
 
 (defn not-implemented [option]
@@ -203,4 +203,3 @@
     (if (and (options :title) (options :html))
       (if (publish-article now (options :slug) (options :title) (str "file:///" (options :html)))
         (generate-indices now (*config* :max-home-page-articles))))))
-
