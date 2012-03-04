@@ -27,9 +27,9 @@ your home directory. This file should contain the following settings;
 			  :title-selector [:article :h2]
 			  :time-selector [:time] 
 			  :permalink-selector [:article :header :p :a]
+			  :archives-selector [:section#archives]
 			  :archive-list-selector [:.archive-list]
                           :doc-root "/path-to-output-htdocs"
-			  :uri-root "http://www.mydomain.com/"
                           :max-home-page-articles 20 })
 
 ## License

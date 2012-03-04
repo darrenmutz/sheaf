@@ -35,8 +35,9 @@
   (:use clojure.java.io)
   (:use clojure.tools.cli)
   (:use [clojure.data.json :only (json-str write-json read-json)])
-  (:use [net.cgrand.enlive-html :only (deftemplate defsnippet content set-attr do->
-                                       first-child html-resource select nth-of-type)]))
+  (:use [net.cgrand.enlive-html :only (deftemplate defsnippet content set-attr
+                                       do-> first-child html-resource select
+                                       nth-of-type any-node)]))
 
 (load-file (str (System/getProperty (str "user.home")) "/.sheaf"))
 
@@ -86,7 +87,8 @@
   (*config* :title-selector)     (set-attr :id (if link "link" "permalink"))
   (*config* :time-selector)      (content (long-form-date datetime))
   (*config* :time-selector)      (set-attr "datetime" (.toString datetime))
-  (*config* :permalink-selector) (set-attr "href" permalink))
+  (*config* :permalink-selector) (set-attr "href" permalink)
+  (*config* :archives-selector)  nil)
 
 (deftemplate index-template (fetch-content *template-url*) [articles archive-month-years]
   (*config* :index-articles-selector) (apply content articles)
@@ -127,7 +129,7 @@
         (try-write (str (*config* :doc-root) "/" relative-path)
                    (apply str (article-template
                                (select (fetch-content article-url)
-                                       [:p])
+                                       (*config* :input-article-selector))
                                title
                                now
                                (str "/" relative-path)
@@ -196,7 +198,7 @@
                     archive-month-years)
     (generate-index (take max-root-articles all-articles) (*config* :doc-root)
                     archive-month-years)))
-        
+
 (defn -main [& args]
   (let [[options args usage]
         (cli args
