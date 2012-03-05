@@ -47,8 +47,11 @@
 (def ^:dynamic *archive-root*
   (str (*config* :sheaf-root) "/" (*config* :archive-dir)))
 
-(defn insert-article [archive article]
+(defn create-metadata [archive article]
   (sort #(compare (%2 :publish-time) (%1 :publish-time)) (cons article archive)))
+
+(defn delete-metadata [archive slug]
+  (filter #(not (= (% :slug) slug)) archive))
 
 (defn get-archive-filename [month year]
   (str *archive-root* "/" month "-" year ".json"))
@@ -60,6 +63,9 @@
   
 (defn article-exists? [archive slug]
   (contains? (apply sorted-set (map :slug archive)) slug))
+
+(defn get-article-metadata [archive slug]
+  (first (filter #(= (% :slug) slug) archive)))
 
 (defn fetch-content [url]
   (html-resource (java.net.URL. url)))
@@ -106,6 +112,13 @@
           (println "Couldn't write to" filename)
           (. System (exit 1)))))))
 
+(defn delete-by-filename [filename]
+  (if (.delete (java.io.File. filename))
+    (do
+      (println "Deleted" filename)
+      true)
+    (println "Failed to delete" filename)))
+
 (defn get-year-month-millis [now]
   (hash-map :year   (.getYear now)
             :month  (.getAsShortText (.monthOfYear now))
@@ -135,8 +148,37 @@
                          (str "/" relative-path)
                          link))))
   
+(defn unlink-article [relative-path]
+  (let [target-filename (str (*config* :doc-root) "/" relative-path)]
+    (if (.delete (java.io.File. target-filename))
+      (do
+        (println "Deleted" target-filename)
+        true)
+      (println "Failed to delete" target-filename))))
+
+
+(defn publish-article [now slug title article-url link]
+  (let [ymm (get-year-month-millis now)
+        year (ymm :year)
+        month (ymm :month)
+        millis (ymm :millis)
+        archive-filename (get-archive-filename month year)
+        archive (read-archive archive-filename)]
+    (if (article-exists? archive slug)
+      (println "Can't publish an article that already exists.")
+      (let [relative-path (get-relative-path month year slug)]
+        (try-write archive-filename
+                   (json-str (create-metadata archive
+                                              {:slug slug
+                                               :title title
+                                               :publish-time millis
+                                               :relative-path relative-path})))
+        (write-article relative-path article-url title now link archive slug)
+        true))))
+
 (defn revise-article [month year slug title article-url link]
-  (let [archive (read-archive (get-archive-filename month year))]
+  (let [archive-filename (get-archive-filename month year)
+        archive (read-archive archive-filename)]
     (if (article-exists? archive slug)
       (let [relative-path (get-relative-path month year slug)]
         (try-write (get-archive-filename month year)
@@ -146,27 +188,20 @@
         true)
       (println "Can't revise an article that doesn't exist."))))
 
-(defn publish-article [now slug title article-url link]
-  (let [ymm (get-year-month-millis now)
-        year (ymm :year)
-        month (ymm :month)
-        millis (ymm :millis)
-        archive (read-archive (get-archive-filename month year))]
+(defn delete-article [month year slug]
+  (let [archive-filename (get-archive-filename month year)
+        archive (read-archive archive-filename)]
     (if (article-exists? archive slug)
-      (println "Can't publish an article that already exists.")
-      (let [relative-path (get-relative-path month year slug)]
-        (try-write (get-archive-filename month year)
-                   (json-str (insert-article archive
-                                             {:slug slug
-                                              :title title
-                                              :publish-time millis
-                                              :relative-path relative-path})))
-        (write-article relative-path article-url title now link archive slug)
-        true))))
-
-(defn not-implemented [option]
-  (println "Option '" option "' is not yet implemented")
-  (. System (exit 1)))
+      (if-let [metadata (get-article-metadata archive slug)]
+        (do
+          (if (unlink-article (metadata :relative-path))
+            (let [lighter-archive (delete-metadata archive slug)]
+              (if (empty? lighter-archive)
+                (delete-by-filename archive-filename)
+                (try-write archive-filename
+                           (json-str (delete-metadata archive slug))))
+              true))))
+      (println "Can't delete an article that doesn't exist."))))
 
 (defn datetime-from-month-year [month-year-string]
   (if-let [[match month year] (re-find #"([A-Z][a-z]+)-([0-9]+)" month-year-string)]
@@ -208,11 +243,15 @@
         (map annotated-archive-from-file (dir-list *archive-root*))))
 
 (defn generate-index [articles target-dir archive-month-years]
-  (let [article-urls (map #(str "file:///" (*config* :doc-root) "/" (% :relative-path)) articles)
-        article-contents (map fetch-content article-urls)
-        article-nodes (map #(select % (*config* :article-selector)) article-contents)]
-    (try-write (str target-dir "/index.html")
-               (apply str (index-template article-nodes archive-month-years)))))
+  (if (empty? articles)
+    (println "Not generating an empty index.")
+    (let [article-urls (map #(str "file:///" (*config* :doc-root) "/" (% :relative-path)) articles)
+          article-contents (map fetch-content article-urls)
+          article-nodes (map #(select % (*config* :article-selector)) article-contents)]
+      (if (and (not (empty? article-nodes)) (not (empty? archive-month-years)))
+        (try-write (str target-dir "/index.html")
+                   (apply str (index-template article-nodes archive-month-years)))
+        (println "Not generating empty index.")))))
 
 (defn generate-indices [now max-root-articles]
   (let [ymm (get-year-month-millis now)
@@ -222,8 +261,9 @@
         archive-month-years (map #(select-keys % [:month :year]) sorted-archives)
         this-months-articles (archives-to-seq nil (vector (first sorted-archives)))
         all-articles (archives-to-seq nil sorted-archives)]
-    (generate-index this-months-articles (str (*config* :doc-root) "/" month "-" year)
-                    archive-month-years)
+    (if archive-month-years
+      (generate-index this-months-articles (str (*config* :doc-root) "/" month "-" year)
+                      archive-month-years))
     (generate-index (take max-root-articles all-articles) (*config* :doc-root)
                     archive-month-years)))
 
@@ -237,32 +277,33 @@
         (cli args
              ["-p" "--publish" "Publish an article" :flag true]
              ["-r" "--revise"  "Revise an article" :flag true]
+             ["-d" "--delete"  "Delete an article" :flag true]
              ["-m" "--month"   "Month an article to revise was published in"]
              ["-y" "--year"    "Year an article to revise was published in"]
-             ["-d" "--delete"  "Delete an article" :flag true]
              ["-s" "--slug"    "Article slug, ex: my-article-title"]
              ["-t" "--title"   "Article title, ex: \"My article title\""]
              ["-l" "--link"    "Title is an offsite link, ex: \"http://www.noaa.gov\""]
              ["-h" "--html"    "File containing html article, ex: path/to/article.html"]
              ["-c" "--config"  "Load config from this filename instead of ~/.sheaf"])
         now (DateTime.)]
-    (if (not (reduce #(or %1 %2) (map options [:publish :revise :delete])))
+    (let [publish (options :publish)
+          revise (options :revise)
+          delete (options :delete)
+          month (options :month)
+          year (options :year)
+          slug (options :slug)
+          title (options :title)
+          link (options :link)
+          html (options :html)
+          config (options :config)]
+    (if (not (or (map nil? [publish revise delete])))
       (usage-and-exit usage))
-    (if (options :delete)
-      (not-implemented "--delete"))
-    (if (reduce #(and (options %1) (options %2)) [:revise :slug :title :html :month :year])
-      (let [slug (options :slug)
-            title (options :title)
-            html (options :html)
-            month (options :month)
-            year (options :year)]
-        (if (revise-article month year slug title (str "file:///" html) (options :link))
-          (generate-indices now (*config* :max-home-page-articles))))
-      (usage-and-exit usage))
-    (if (reduce #(and (options %1) (options %2)) [:publish :slug :title :html])
-      (let [slug (options :slug)
-            title (options :title)
-            html (options :html)]
-        (if (publish-article now slug title (str "file:///" html) (options :link))
-          (generate-indices now (*config* :max-home-page-articles))))
-      (usage-and-exit usage))))
+    (if (and delete slug month year)
+      (if (delete-article month year slug)
+        (generate-indices now (*config* :max-home-page-articles))))
+    (if (and revise slug title html month year)
+      (if (revise-article month year slug title (str "file:///" html) link)
+        (generate-indices now (*config* :max-home-page-articles))))
+    (if (and publish slug title html)
+      (if (publish-article now slug title (str "file:///" html) link)
+        (generate-indices now (*config* :max-home-page-articles)))))))
