@@ -227,6 +227,11 @@
     (generate-index (take max-root-articles all-articles) (*config* :doc-root)
                     archive-month-years)))
 
+(defn usage-and-exit [usage]
+  (do
+    (println usage)
+    (. System (exit 1))))
+
 (defn -main [& args]
   (let [[options args usage]
         (cli args
@@ -238,25 +243,26 @@
              ["-s" "--slug"    "Article slug, ex: my-article-title"]
              ["-t" "--title"   "Article title, ex: \"My article title\""]
              ["-l" "--link"    "Title is an offsite link, ex: \"http://www.noaa.gov\""]
-             ["-h" "--html"    "File containing html article, ex: path/to/article.html"])
+             ["-h" "--html"    "File containing html article, ex: path/to/article.html"]
+             ["-c" "--config"  "Load config from this filename instead of ~/.sheaf"])
         now (DateTime.)]
     (if (not (reduce #(or %1 %2) (map options [:publish :revise :delete])))
-      (do
-        (println usage)
-        (. System (exit 1))))
+      (usage-and-exit usage))
     (if (options :delete)
       (not-implemented "--delete"))
-    (if (options :revise)
+    (if (reduce #(and (options %1) (options %2)) [:revise :slug :title :html :month :year])
       (let [slug (options :slug)
             title (options :title)
             html (options :html)
             month (options :month)
             year (options :year)]
         (if (revise-article month year slug title (str "file:///" html) (options :link))
-          (generate-indices now (*config* :max-home-page-articles)))))
-    (if (options :publish)
+          (generate-indices now (*config* :max-home-page-articles))))
+      (usage-and-exit usage))
+    (if (reduce #(and (options %1) (options %2)) [:publish :slug :title :html])
       (let [slug (options :slug)
             title (options :title)
             html (options :html)]
         (if (publish-article now slug title (str "file:///" html) (options :link))
-          (generate-indices now (*config* :max-home-page-articles)))))))
+          (generate-indices now (*config* :max-home-page-articles))))
+      (usage-and-exit usage))))
