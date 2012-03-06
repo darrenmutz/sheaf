@@ -37,7 +37,7 @@
   (:use [clojure.data.json :only (json-str write-json read-json)])
   (:use [net.cgrand.enlive-html :only (deftemplate defsnippet content set-attr
                                        do-> first-child html-resource select
-                                       nth-of-type any-node)]))
+                                       nth-of-type any-node text-node)]))
 
 (load-file (str (System/getProperty (str "user.home")) "/.sheaf"))
 
@@ -127,9 +127,6 @@
 (defn get-relative-path [month year slug]
   (str month "-" year "/" slug ".html"))
 
-(defn update-title [archive slug title]
-  (map #(if (= (% :slug) slug) (assoc % :title title) %) archive))
-
 (defn get-publish-time [archive slug]
   (loop [remainder archive]
     (if (empty? remainder)
@@ -138,15 +135,15 @@
         ((first remainder) :publish-time)
         (recur (rest remainder))))))
 
-(defn write-article [relative-path article-url title publish-time link archive slug]
-  (try-write (str (*config* :doc-root) "/" relative-path)
-             (apply str (article-template
-                         (select (fetch-content article-url)
-                                 (*config* :input-article-selector))
-                         title
-                         publish-time
-                         (str "/" relative-path)
-                         link))))
+(defn write-article [relative-path article-url publish-time link archive slug]
+  (let [article-content (fetch-content article-url)]
+    (try-write (str (*config* :doc-root) "/" relative-path)
+               (apply str (article-template
+                           (select article-content (*config* :input-article-selector))
+                           (select article-content (*config* :input-title-selector))
+                           publish-time
+                           (str "/" relative-path)
+                           link)))))
   
 (defn unlink-article [relative-path]
   (let [target-filename (str (*config* :doc-root) "/" relative-path)]
@@ -157,7 +154,7 @@
       (println "Failed to delete" target-filename))))
 
 
-(defn publish-article [now slug title article-url link]
+(defn publish-article [now slug article-url link]
   (let [ymm (get-year-month-millis now)
         year (ymm :year)
         month (ymm :month)
@@ -170,20 +167,17 @@
         (try-write archive-filename
                    (json-str (create-metadata archive
                                               {:slug slug
-                                               :title title
                                                :publish-time millis
                                                :relative-path relative-path})))
-        (write-article relative-path article-url title now link archive slug)
+        (write-article relative-path article-url now link archive slug)
         true))))
 
-(defn revise-article [month year slug title article-url link]
+(defn revise-article [month year slug article-url link]
   (let [archive-filename (get-archive-filename month year)
         archive (read-archive archive-filename)]
     (if (article-exists? archive slug)
       (let [relative-path (get-relative-path month year slug)]
-        (try-write (get-archive-filename month year)
-                   (json-str (update-title archive slug title)))
-        (write-article relative-path article-url title (get-publish-time archive slug)
+        (write-article relative-path article-url (get-publish-time archive slug)
                        link archive slug)
         true)
       (println "Can't revise an article that doesn't exist."))))
@@ -281,7 +275,6 @@
              ["-m" "--month"   "Month an article to revise was published in"]
              ["-y" "--year"    "Year an article to revise was published in"]
              ["-s" "--slug"    "Article slug, ex: my-article-title"]
-             ["-t" "--title"   "Article title, ex: \"My article title\""]
              ["-l" "--link"    "Title is an offsite link, ex: \"http://www.noaa.gov\""]
              ["-h" "--html"    "File containing html article, ex: path/to/article.html"]
              ["-c" "--config"  "Load config from this filename instead of ~/.sheaf"])
@@ -292,18 +285,30 @@
           month (options :month)
           year (options :year)
           slug (options :slug)
-          title (options :title)
           link (options :link)
           html (options :html)
           config (options :config)]
       (if (not (or (map nil? [publish revise delete])))
         (usage-and-exit usage))
-      (if (and delete slug month year)
-        (if (delete-article month year slug)
-          (generate-indices now (*config* :max-home-page-articles))))
-      (if (and revise slug title html month year)
-        (if (revise-article month year slug title (str "file:///" html) link)
-          (generate-indices now (*config* :max-home-page-articles))))
-      (if (and publish slug title html)
-        (if (publish-article now slug title (str "file:///" html) link)
-          (generate-indices now (*config* :max-home-page-articles)))))))
+      (if delete
+        (if (and slug month year)
+          (if (delete-article month year slug)
+            (generate-indices now (*config* :max-home-page-articles)))
+          (do
+            (println "Delete requires options slug, month, and year.")
+            (usage-and-exit usage)))
+        (if revise
+          (if (and slug html month year)
+            (if (revise-article month year slug (str "file:///" html) link)
+              (generate-indices now (*config* :max-home-page-articles)))
+            (do
+              (println "Revise requires slug, html, month, and year.")
+              (usage-and-exit usage)))
+          (if publish
+            (if (and slug html)
+              (if (publish-article now slug (str "file:///" html) link)
+                (generate-indices now (*config* :max-home-page-articles)))
+              (do
+                (println "Publish requires slug, html.")
+                (usage-and-exit usage)))))))))
+            

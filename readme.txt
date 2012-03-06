@@ -12,7 +12,6 @@ Sheaf is a static blogging engine.
  -y, --year                            Year an article to revise was published in
  -d, --no-delete, --delete    false    Delete an article                                      
  -s, --slug                            Article slug, ex: my-article-title                     
- -t, --title                           Article title, ex: "My article title"                  
  -l, --link                            Title is an offsite link, ex: "http://www.noaa.gov"    
  -h, --html                            File containing html article, ex: path/to/article.html 
 
@@ -25,6 +24,7 @@ your home directory. This file should contain the following settings;
                           :template-file "your-template.html"
                           :articles-selector [:section :article :body]
 			  :article-selector [:article]
+			  :input-title-selector [:title :> text-node]
 			  :index-articles-selector [:section.articles]
 			  :title-selector [:article :h2]
 			  :time-selector [:time] 
