@@ -200,8 +200,10 @@
 (defn datetime-from-month-year [month-year-string]
   (if-let [[match month year] (re-find #"([A-Z][a-z]+)-([0-9]+)" month-year-string)]
     (let [builder (DateTimeFormatterBuilder.)
-          custom-builder (.builder (.appendYear (.appendLiteral (.appendMonthOfYearShortText builder)) "-")
-                                   4 4)
+          custom-builder (.builder
+                          (.appendYear
+                           (.appendLiteral
+                            (.appendMonthOfYearShortText builder)) "-") 4 4)
           formatter (.toFormatter custom-builder)]
       (.parseDateTime formatter month-year-string)))
   nil)
@@ -211,7 +213,9 @@
 
 (defn datetime-from-month-year [month year]
   (let [builder (DateTimeFormatterBuilder.)
-        custom-builder (.appendYear (.appendLiteral (.appendMonthOfYearShortText builder) "-") 4 4)
+        custom-builder (.appendYear
+                        (.appendLiteral
+                         (.appendMonthOfYearShortText builder) "-") 4 4)
         formatter (.toFormatter custom-builder)]
     (.parseDateTime formatter (str month "-" year))))
 
@@ -311,4 +315,3 @@
               (do
                 (println "Publish requires slug, html.")
                 (usage-and-exit usage)))))))))
-            
