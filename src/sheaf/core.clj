@@ -258,9 +258,11 @@
         sorted-archives (get-sorted-archives)
         archive-month-years (map #(select-keys % [:month :year]) sorted-archives)
         this-months-articles (archives-to-seq nil (vector (first sorted-archives)))
+        this-months-articles-asc (sort #(compare (%1 :publish-time) (%2 :publish-time))
+                                       this-months-articles)
         all-articles (archives-to-seq nil sorted-archives)]
     (if archive-month-years
-      (generate-index this-months-articles (str (*config* :doc-root) "/" month "-" year)
+      (generate-index this-months-articles-asc (str (*config* :doc-root) "/" month "-" year)
                       archive-month-years))
     (generate-index (take max-root-articles all-articles) (*config* :doc-root)
                     archive-month-years)))
