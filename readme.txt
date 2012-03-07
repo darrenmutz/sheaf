@@ -22,12 +22,13 @@ your home directory. This file should contain the following settings;
 (def ^:dynamic *config* { :sheaf-root "/path-to-datastore-home/sheaf"
                           :archive-dir "dir-to-store-archive-metadata"
                           :template-file "your-template.html"
+			  :input-article-selector [:article :> any-node]
                           :articles-selector [:section :article :body]
 			  :article-selector [:article]
 			  :input-title-selector [:title :> text-node]
-			  :index-articles-selector [:section.articles]
+			  :index-articles-selector [:#articles]
 			  :title-selector [:article :h2]
-			  :time-selector [:time] 
+			  :time-selector [:time]
 			  :permalink-selector [:article :header :p :a]
 			  :archives-selector [:section#archives]
 			  :archive-list-selector [:.archive-list]
