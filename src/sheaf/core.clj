@@ -294,7 +294,7 @@
           link (options :link)
           html (options :html)
           config (options :config)]
-      (if (and (map nil? [publish revise delete]))
+      (if (not (or publish revise delete))
         (usage-and-exit usage))
       (if delete
         (if (and slug month year)

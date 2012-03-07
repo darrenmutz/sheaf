@@ -27,7 +27,7 @@ your home directory. This file should contain the following settings;
 			  :article-selector [:article]
 			  :input-title-selector [:title :> text-node]
 			  :index-articles-selector [:#articles]
-			  :title-selector [:article :h2]
+			  :title-selector [:article :h2 :a]
 			  :time-selector [:time]
 			  :permalink-selector [:article :header :p :a]
 			  :archives-selector [:section#archives]
