@@ -304,11 +304,14 @@
             (println "Delete requires options slug, month, and year.")
             (usage-and-exit usage)))
         (if revise
-          (if (and slug html month year)
-            (if (revise-article month year slug (str "file:///" html) link)
+          (if (and slug html)
+            (if (revise-article (if month month (.getAsShortText (.monthOfYear now)))
+                                (if year year (.getYear now))
+                                slug
+                                (str "file:///" html) link)
               (generate-indices now (*config* :max-home-page-articles)))
             (do
-              (println "Revise requires slug, html, month, and year.")
+              (println "Revise requires slug, html and, optionally, month and year.")
               (usage-and-exit usage)))
           (if publish
             (if (and slug html)
