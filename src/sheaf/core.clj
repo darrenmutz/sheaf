@@ -301,7 +301,7 @@
           (if (delete-article month year slug)
             (generate-indices now (*config* :max-home-page-articles)))
           (do
-            (println "Delete requires options slug, month, and year.")
+            (println "Delete requires options slug, month and year.")
             (usage-and-exit usage)))
         (if revise
           (if (and slug html)
@@ -318,5 +318,5 @@
               (if (publish-article now slug (str "file:///" html) link)
                 (generate-indices now (*config* :max-home-page-articles)))
               (do
-                (println "Publish requires slug, html.")
+                (println "Publish requires slug and html.")
                 (usage-and-exit usage)))))))))
