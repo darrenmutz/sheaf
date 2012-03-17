@@ -311,7 +311,8 @@
                                 (str "file:///" html) link)
               (generate-indices now (*config* :max-home-page-articles)))
             (do
-              (println "Revise requires slug, html and, optionally, month and year.")
+              (println "Revise requires slug, html and, optionally, month, year. "
+                       "If you're revising a link post, include the link option, too.")
               (usage-and-exit usage)))
           (if publish
             (if (and slug html)
