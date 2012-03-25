@@ -282,8 +282,7 @@
              ["-y" "--year"    "Year an article to revise was published in"]
              ["-s" "--slug"    "Article slug, ex: my-article-title"]
              ["-l" "--link"    "Title is an offsite link, ex: \"http://www.noaa.gov\""]
-             ["-h" "--html"    "File containing html article, ex: path/to/article.html"]
-             ["-c" "--config"  "Load config from this filename instead of ~/.sheaf"])
+             ["-h" "--html"    "File containing html article, ex: path/to/article.html"])
         now (DateTime.)]
     (let [publish (options :publish)
           revise (options :revise)
