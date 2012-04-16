@@ -236,8 +236,8 @@
          (cons (first articles) (archives-to-seq (rest articles) (rest archives))))
        nil))))
 
-(defn get-sorted-archives []
-  (sort #(compare (%1 :datetime) (%2 :datetime))
+(defn get-desc-sorted-archives []
+  (sort #(compare (%2 :datetime) (%1 :datetime))
         (map annotated-archive-from-file (dir-list *archive-root*))))
 
 (defn generate-index [articles target-dir archive-month-years]
@@ -255,7 +255,7 @@
   (let [ymm (get-year-month-millis now)
         year (ymm :year)
         month (ymm :month)
-        sorted-archives (get-sorted-archives)
+        sorted-archives (get-desc-sorted-archives)
         archive-month-years (map #(select-keys % [:month :year]) sorted-archives)
         this-months-articles (archives-to-seq nil (vector (first sorted-archives)))
         this-months-articles-asc (sort #(compare (%1 :publish-time) (%2 :publish-time))
