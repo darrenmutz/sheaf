@@ -28,7 +28,10 @@
 ;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 ;; OF THE POSSIBILITY OF SUCH DAMAGE.
 
-(ns sheaf.core
+(ns ^{:author "Darren Mutz"
+      :see-also
+      [["https://github.com/darrenmutz/sheaf" "Source code"]]}
+  sheaf.core
   (:import org.joda.time.DateTime)
   (:import org.joda.time.format.DateTimeFormatterBuilder)
   (:gen-class)
@@ -78,7 +81,7 @@
                             (.appendMonthOfYearText (DateTimeFormatterBuilder.)) " ") 1) ", ") 4 4))
           datetime))
 
-(def *link-sel* [[:.archive-list (nth-of-type 1)] :> first-child])
+(def ^:dynamic *link-sel* [[:.archive-list (nth-of-type 1)] :> first-child])
 
 (defsnippet link-model (fetch-content *template-url*) *link-sel*
   [{:keys [month year]}]
