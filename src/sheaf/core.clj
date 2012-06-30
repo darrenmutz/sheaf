@@ -89,7 +89,8 @@
         (content (str month " " year))
         (set-attr :href (str "/" month "-" year))))
 
-(deftemplate article-template (fetch-content *template-url*) [article title datetime permalink link]
+(deftemplate article-template (fetch-content *template-url*)
+  [article title datetime permalink link]
   (*config* :articles-selector)  (apply content article)
   (*config* :title-selector)     (content title)
   (*config* :title-selector)     (set-attr :href (if link link permalink))
@@ -99,9 +100,11 @@
   (*config* :permalink-selector) (set-attr "href" permalink)
   (*config* :archives-selector)  nil)
 
-(deftemplate index-template (fetch-content *template-url*) [articles archive-month-years]
+(deftemplate index-template (fetch-content *template-url*)
+  [articles archive-month-years]
   (*config* :index-articles-selector) (apply content articles)
-  (*config* :archive-list-selector)   (content (map link-model archive-month-years)))
+  (*config* :archive-list-selector)   (content (map link-model
+                                                    archive-month-years)))
 
 (defn try-write [filename content]
   (do
@@ -142,8 +145,10 @@
   (let [article-content (fetch-content article-url)]
     (try-write (str (*config* :doc-root) "/" relative-path)
                (apply str (article-template
-                           (select article-content (*config* :input-article-selector))
-                           (select article-content (*config* :input-title-selector))
+                           (select article-content
+                                   (*config* :input-article-selector))
+                           (select article-content
+                                   (*config* :input-title-selector))
                            publish-time
                            (str "/" relative-path)
                            link)))))
@@ -155,7 +160,6 @@
         (println "Deleted" target-filename)
         true)
       (println "Failed to delete" target-filename))))
-
 
 (defn publish-article [now slug article-url link]
   (let [ymm (get-year-month-millis now)
@@ -201,7 +205,8 @@
       (println "Can't delete an article that doesn't exist."))))
 
 (defn datetime-from-month-year [month-year-string]
-  (if-let [[match month year] (re-find #"([A-Z][a-z]+)-([0-9]+)" month-year-string)]
+  (if-let [[match month year] (re-find #"([A-Z][a-z]+)-([0-9]+)"
+                                       month-year-string)]
     (let [builder (DateTimeFormatterBuilder.)
           custom-builder (.builder
                           (.appendYear
@@ -236,7 +241,8 @@
      (cons (first articles) (archives-to-seq (rest articles) archives))
      (if (first archives)
        (let [articles (read-archive (:filename (first archives)))]
-         (cons (first articles) (archives-to-seq (rest articles) (rest archives))))
+         (cons (first articles) (archives-to-seq (rest articles)
+                                                 (rest archives))))
        nil))))
 
 (defn get-desc-sorted-archives []
@@ -246,9 +252,11 @@
 (defn generate-index [articles target-dir archive-month-years]
   (if (empty? articles)
     (println "Not generating an empty index.")
-    (let [article-urls (map #(str "file:///" (*config* :doc-root) "/" (% :relative-path)) articles)
+    (let [article-urls (map #(str "file:///" (*config* :doc-root) "/"
+                                  (% :relative-path)) articles)
           article-contents (map fetch-content article-urls)
-          article-nodes (map #(select % (*config* :article-selector)) article-contents)]
+          article-nodes (map #(select % (*config* :article-selector))
+                             article-contents)]
       (if (and (not (empty? article-nodes)) (not (empty? archive-month-years)))
         (try-write (str target-dir "/index.html")
                    (apply str (index-template article-nodes archive-month-years)))
@@ -259,13 +267,17 @@
         year (ymm :year)
         month (ymm :month)
         sorted-archives (get-desc-sorted-archives)
-        archive-month-years (map #(select-keys % [:month :year]) sorted-archives)
-        this-months-articles (archives-to-seq nil (vector (first sorted-archives)))
-        this-months-articles-asc (sort #(compare (%1 :publish-time) (%2 :publish-time))
+        archive-month-years (map #(select-keys % [:month :year])
+                                 sorted-archives)
+        this-months-articles (archives-to-seq nil
+                                              (vector (first sorted-archives)))
+        this-months-articles-asc (sort #(compare (%1 :publish-time)
+                                                 (%2 :publish-time))
                                        this-months-articles)
         all-articles (archives-to-seq nil sorted-archives)]
     (if archive-month-years
-      (generate-index this-months-articles-asc (str (*config* :doc-root) "/" month "-" year)
+      (generate-index this-months-articles-asc
+                      (str (*config* :doc-root) "/" month "-" year)
                       archive-month-years))
     (generate-index (take max-root-articles all-articles) (*config* :doc-root)
                     archive-month-years)))
@@ -284,8 +296,10 @@
              ["-m" "--month"   "Month an article to revise was published in"]
              ["-y" "--year"    "Year an article to revise was published in"]
              ["-s" "--slug"    "Article slug, ex: my-article-title"]
-             ["-l" "--link"    "Title is an offsite link, ex: \"http://www.noaa.gov\""]
-             ["-h" "--html"    "File containing html article, ex: path/to/article.html"])
+             ["-l" "--link"    (str "Title is an offsite link, ex: "
+                                    "\"http://www.noaa.gov\"")]
+             ["-h" "--html"    (str "File containing html article, ex: "
+                                    "path/to/article.html")])
         now (DateTime.)]
     (let [publish (options :publish)
           revise (options :revise)
@@ -297,24 +311,24 @@
           html (options :html)
           config (options :config)]
       (if (not (or publish revise delete))
-        (usage-and-exit usage))
+          (usage-and-exit usage))
       (if delete
         (if (and slug month year)
           (if (delete-article month year slug)
-            (generate-indices now (*config* :max-home-page-articles)))
+            (generate-indices (datetime-from-month-year month year)
+                              (*config* :max-home-page-articles)))
           (do
             (println "Delete requires options slug, month and year.")
             (usage-and-exit usage)))
         (if revise
           (if (and slug html)
-            (if (revise-article (if month month (.getAsShortText (.monthOfYear now)))
-                                (if year year (.getYear now))
-                                slug
-                                (str "file:///" html) link)
-              (generate-indices now (*config* :max-home-page-articles)))
+            (if (revise-article month year slug (str "file:///" html) link)
+              (generate-indices (datetime-from-month-year month year)
+                                (*config* :max-home-page-articles)))
             (do
-              (println "Revise requires slug, html and, optionally, month, year. "
-                       "If you're revising a link post, include the link option, too.")
+              (println (str "Revise requires slug, html, month and year. "
+                            "If you're revising a link post, include the "
+                            "link option, too."))
               (usage-and-exit usage)))
           (if publish
             (if (and slug html)
