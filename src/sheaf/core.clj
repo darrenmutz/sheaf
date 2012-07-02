@@ -74,12 +74,14 @@
   (html-resource (java.net.URL. url)))
 
 (defn long-form-date [datetime]
-  (.print (.toFormatter (.appendYear
-                         (.appendLiteral
-                          (.appendDayOfMonth
-                           (.appendLiteral
-                            (.appendMonthOfYearText (DateTimeFormatterBuilder.)) " ") 1) ", ") 4 4))
-          datetime))
+  (-> (DateTimeFormatterBuilder.)
+      (.appendMonthOfYearText)
+      (.appendLiteral " ")
+      (.appendDayOfMonth 1)
+      (.appendLiteral ", ")
+      (.appendYear 4 4)
+      (.toFormatter)
+      (.print datetime)))
 
 (def ^:dynamic *link-sel* [[:.archive-list (nth-of-type 1)] :> first-child])
 
@@ -220,12 +222,12 @@
   (apply vector (.list (java.io.File. dir))))
 
 (defn datetime-from-month-year [month year]
-  (let [builder (DateTimeFormatterBuilder.)
-        custom-builder (.appendYear
-                        (.appendLiteral
-                         (.appendMonthOfYearShortText builder) "-") 4 4)
-        formatter (.toFormatter custom-builder)]
-    (.parseDateTime formatter (str month "-" year))))
+  (-> (DateTimeFormatterBuilder.)
+      (.appendMonthOfYearShortText)
+      (.appendLiteral "-")
+      (.appendYear 4 4)
+      (.toFormatter)
+      (.parseDateTime (str month "-" year))))
 
 (defn annotated-archive-from-file [filename]
   (let [archive-regex #"([A-Z][a-z]+)-([0-9]+).json"]
