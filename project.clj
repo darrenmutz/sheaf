@@ -8,4 +8,5 @@
                  [enlive "1.0.0"]
                  [org.clojure/data.json "0.1.1"]
                  [joda-time "2.0"]]
+  :dev-dependencies [[lein-marginalia "0.7.1"]]
   :main sheaf.core)
