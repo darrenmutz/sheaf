@@ -2,3 +2,6 @@
 *.jar
 .lein-failures
 classes
+.lein-deps-sum
+docs
+target
