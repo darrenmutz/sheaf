@@ -237,15 +237,18 @@
                 :month month
                 :year year))))
 
-(defn archives-to-seq [articles archives]
-  (lazy-seq
-   (if (first articles)
-     (cons (first articles) (archives-to-seq (rest articles) archives))
-     (if (first archives)
-       (let [articles (read-archive (:filename (first archives)))]
-         (cons (first articles) (archives-to-seq (rest articles)
-                                                 (rest archives))))
-       nil))))
+(defn archives-to-seq
+  ([archives]
+     (archives-to-seq nil archives))
+  ([articles archives]
+     (lazy-seq
+      (if (first articles)
+        (cons (first articles) (archives-to-seq (rest articles) archives))
+        (if (first archives)
+          (let [articles (read-archive (:filename (first archives)))]
+            (cons (first articles) (archives-to-seq (rest articles)
+                                                    (rest archives))))
+          nil)))))
 
 (defn get-desc-sorted-archives []
   (sort #(compare (%2 :datetime) (%1 :datetime))
@@ -271,12 +274,11 @@
         sorted-archives (get-desc-sorted-archives)
         archive-month-years (map #(select-keys % [:month :year])
                                  sorted-archives)
-        this-months-articles (archives-to-seq nil
-                                              (vector (first sorted-archives)))
+        this-months-articles (archives-to-seq (vector (first sorted-archives)))
         this-months-articles-asc (sort #(compare (%1 :publish-time)
                                                  (%2 :publish-time))
                                        this-months-articles)
-        all-articles (archives-to-seq nil sorted-archives)]
+        all-articles (archives-to-seq sorted-archives)]
     (if archive-month-years
       (generate-index this-months-articles-asc
                       (str (*config* :doc-root) "/" month "-" year)
