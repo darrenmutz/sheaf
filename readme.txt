@@ -17,21 +17,29 @@ Sheaf is a static blogging engine.
 
 
 Sheaf expects configuration to be located in a file called '.sheaf' in
-your home directory. This file should contain the following settings;
+your home directory. Here's an example;
 
-(def ^:dynamic *config* { :sheaf-root "/path-to-datastore-home/sheaf"
-                          :archive-dir "dir-to-store-archive-metadata"
-                          :template-file "your-template.html"
-			  :input-article-selector [:article :> any-node]
+(def ^:dynamic *config* { :blog-title "A Decade Removed"
+                          :blog-subtitle "As it was, so it shall be"
+                          :base-url "example.org"
+                          :atom-filename "index.xml"
+                          :uuid "unique-identifier"
+                          :author-name "Courier Botanical"
+                          :author-uri "http://example.org/"
+                          :sheaf-root "/path-to-datastore-home/sheaf"
+                          :archive-dir "dir-to-store-article-metadata"
+                          :template-file "template.html"
+                          :input-article-selector [:article :> any-node]
                           :articles-selector [:section :article :body]
-			  :article-selector [:article]
-			  :input-title-selector [:title :> text-node]
-			  :index-articles-selector [:#articles]
-			  :title-selector [:article :h2 :a]
-			  :time-selector [:time]
-			  :permalink-selector [:article :header :p :a]
-			  :archives-selector [:section#archives]
-			  :archive-list-selector [:.archive-list]
+                          :article-selector [:article]
+                          :article-body-selector [:#articles :body]
+                          :input-title-selector [:title :> text-node]
+                          :index-articles-selector [:#articles]
+                          :title-selector [:article :h2 :a]
+                          :time-selector [:time]
+                          :permalink-selector [:article :header :p :a]
+                          :archives-selector [:section#archives]
+                          :archive-list-selector [:.archive-list]
                           :doc-root "/path-to-output-htdocs"
                           :max-home-page-articles 20 })
 

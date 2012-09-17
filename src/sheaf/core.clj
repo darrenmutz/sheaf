@@ -33,14 +33,20 @@
       [["https://github.com/darrenmutz/sheaf" "Source code"]]}
   sheaf.core
   (:import org.joda.time.DateTime)
+  (:import org.joda.time.DateTimeZone)
   (:import org.joda.time.format.DateTimeFormatterBuilder)
+  (:import org.joda.time.format.ISODateTimeFormat)
   (:gen-class)
   (:use clojure.java.io)
   (:use clojure.tools.cli)
   (:use [clojure.data.json :only (json-str write-json read-json)])
-  (:use [net.cgrand.enlive-html :only (deftemplate defsnippet content set-attr
-                                       do-> first-child html-resource select
-                                       nth-of-type any-node text-node)]))
+  (:use [net.cgrand.enlive-html :only (at deftemplate defsnippet content emit*
+                                       set-attr do-> first-child html-resource
+                                       select nth-of-type any-node text-node
+                                       html-content)])
+  (:use hiccup.core)
+  (:use hiccup.page)
+  (:use hiccup.util))
 
 (load-file (str (System/getProperty (str "user.home")) "/.sheaf"))
 
@@ -54,7 +60,7 @@
   (sort #(compare (%2 :publish-time) (%1 :publish-time)) (cons article archive)))
 
 (defn delete-metadata [archive slug]
-  (filter #(not (= (% :slug) slug)) archive))
+  (remove #(= (% :slug) slug) archive))
 
 (defn get-archive-filename [month year]
   (str *archive-root* "/" month "-" year ".json"))
@@ -84,6 +90,16 @@
       (.print datetime)))
 
 (def ^:dynamic *link-sel* [[:.archive-list (nth-of-type 1)] :> first-child])
+
+(defn hexify [s]
+  (apply str (map #(format "%02x" %) (.getBytes s "UTF-8"))))
+
+(defn unhexify [s]
+  (let [bytes (into-array Byte/TYPE
+                          (map (fn [[x y]]
+                                 (unchecked-byte (Integer/parseInt (str x y) 16)))
+                               (partition 2 s)))]
+    (String. bytes "UTF-8")))
 
 (defsnippet link-model (fetch-content *template-url*) *link-sel*
   [{:keys [month year]}]
@@ -127,10 +143,12 @@
       true)
     (println "Failed to delete" filename)))
 
-(defn get-year-month-millis [now]
-  (hash-map :year   (.getYear now)
-            :month  (.getAsShortText (.monthOfYear now))
-            :millis (.getMillis now)))
+(defn get-year-month-day-millis [datetime]
+  (hash-map :year      (.getYear datetime)
+            :month     (.getAsShortText (.monthOfYear datetime))
+            :month-num (.getMonthOfYear datetime)
+            :day       (.getDayOfMonth datetime)
+            :millis    (.getMillis datetime)))
 
 (defn get-relative-path [month year slug]
   (str month "-" year "/" slug ".html"))
@@ -143,17 +161,16 @@
         ((first remainder) :publish-time)
         (recur (rest remainder))))))
 
-(defn write-article [relative-path article-url publish-time link archive slug]
-  (let [article-content (fetch-content article-url)]
-    (try-write (str (*config* :doc-root) "/" relative-path)
-               (apply str (article-template
-                           (select article-content
-                                   (*config* :input-article-selector))
-                           (select article-content
-                                   (*config* :input-title-selector))
-                           publish-time
-                           (str "/" relative-path)
-                           link)))))
+(defn write-article [relative-path article-content publish-time link archive slug]
+  (try-write (str (*config* :doc-root) "/" relative-path)
+             (apply str (article-template
+                         (select article-content
+                                 (*config* :input-article-selector))
+                         (select article-content
+                                 (*config* :input-title-selector))
+                         publish-time
+                         (str "/" relative-path)
+                         link))))
   
 (defn unlink-article [relative-path]
   (let [target-filename (str (*config* :doc-root) "/" relative-path)]
@@ -163,30 +180,46 @@
         true)
       (println "Failed to delete" target-filename))))
 
+(defn get-encoded-title-from-draft-content [content]
+  (hexify (apply str (select content
+                     (*config* :input-title-selector)))))
+
 (defn publish-article [now slug article-url link]
-  (let [ymm (get-year-month-millis now)
-        year (ymm :year)
-        month (ymm :month)
-        millis (ymm :millis)
+  (let [ymdm (get-year-month-day-millis now)
+        year (ymdm :year)
+        month (ymdm :month)
+        millis (ymdm :millis)
         archive-filename (get-archive-filename month year)
         archive (read-archive archive-filename)]
     (if (article-exists? archive slug)
       (println "Can't publish an article that already exists.")
-      (let [relative-path (get-relative-path month year slug)]
+      (let [relative-path (get-relative-path month year slug)
+            article-content (fetch-content article-url)
+            encoded-title (get-encoded-title-from-draft-content article-content)]
         (try-write archive-filename
                    (json-str (create-metadata archive
                                               {:slug slug
                                                :publish-time millis
-                                               :relative-path relative-path})))
-        (write-article relative-path article-url now link archive slug)
+                                               :relative-path relative-path
+                                               :title encoded-title})))
+        (write-article relative-path article-content now link archive slug)
         true))))
 
-(defn revise-article [month year slug article-url link]
+(defn revise-article [month year slug article-url link now]
   (let [archive-filename (get-archive-filename month year)
-        archive (read-archive archive-filename)]
+        archive (read-archive archive-filename)
+        revision-time (:millis (get-year-month-day-millis now))]
     (if (article-exists? archive slug)
-      (let [relative-path (get-relative-path month year slug)]
-        (write-article relative-path article-url (get-publish-time archive slug)
+      (let [orig-metadata (get-article-metadata archive slug)
+            relative-path (get-relative-path month year slug)
+            article-content (fetch-content article-url)
+            encoded-title (get-encoded-title-from-draft-content article-content)
+            updated-archive (create-metadata (delete-metadata archive slug)
+                                             (assoc orig-metadata
+                                               :revision-time revision-time
+                                               :title encoded-title))]
+        (try-write archive-filename (json-str updated-archive))
+        (write-article relative-path article-content (get-publish-time archive slug)
                        link archive slug)
         true)
       (println "Can't revise an article that doesn't exist."))))
@@ -267,24 +300,106 @@
                    (apply str (index-template article-nodes archive-month-years)))
         (println "Not generating empty index.")))))
 
-(defn generate-indices [now max-root-articles]
-  (let [ymm (get-year-month-millis now)
-        year (ymm :year)
-        month (ymm :month)
+(defn escaped-article-content-from-url [url]
+  (escape-html
+   (apply str
+          (emit* (-> (html-resource (java.net.URL. url))
+                     (select (*config* :input-article-selector)))))))
+
+(defn epoch-to-utc-timestamp [epoch-time]
+  (if epoch-time
+    (-> (ISODateTimeFormat/dateTime)
+        (.print (DateTime. epoch-time (DateTimeZone/UTC))))
+    nil))
+
+(defn atom-entry [title link publish-time revision-time content]
+  (let [publish-ymdm (get-year-month-day-millis (DateTime. publish-time))
+        datestamp (apply str
+                         (interpose \-
+                                    ((juxt #(format "%04d" (:year %))
+                                           #(format "%02d" (:month-num %))
+                                           #(format "%02d" (:day %)))
+                                     publish-ymdm)))
+        [publish-utc-timestamp revision-utc-timestamp]
+        (map epoch-to-utc-timestamp [publish-time revision-time])]
+    [:entry
+     [:title title]
+     [:link {:rel "alternate" :type "text/html" :href link}]
+     [:id (str "tag:" (*config* :base-url) "," datestamp ":/" publish-time)]
+     [:published publish-utc-timestamp]
+     [:updated (if revision-utc-timestamp revision-utc-timestamp publish-utc-timestamp)]
+     [:author
+      [:name (*config* :author-name)]
+      [:uri (*config* :author-uri)]]
+     [:content {:type "html"} content]]))
+
+(defn generate-atom [articles target-dir now]
+  (if (empty? articles)
+    (println "Not generating an empty index.")
+    (let [local-article-urls (map #(str "file:///" (*config* :doc-root)
+                                        (% :relative-path)) articles)
+          article-contents (map escaped-article-content-from-url local-article-urls)
+          absolute-article-urls (map #(str "http://" (*config* :base-url) "/"
+                                           (% :relative-path)) articles)
+          titles (map #(unhexify (:title %)) articles)
+          publish-times (map :publish-time articles)
+          revision-times (map :revision-time articles)
+          atom-entries (map atom-entry
+                            titles
+                            absolute-article-urls
+                            publish-times
+                            revision-times
+                            article-contents)
+          latest-update (apply max
+                               (remove #(nil? %)
+                                       (reduce conj
+                                               publish-times
+                                               revision-times)))]
+      (try-write
+       (str target-dir (*config* :atom-filename))
+       (apply
+        str
+        (html (xml-declaration "utf-8")
+              [:feed {:xmlns "http://www.w3.org/2005/Atom"}
+               [:title (*config* :blog-title)]
+               [:subtitle (*config* :blog-subtitle)]
+               [:link {:rel "alternate"
+                       :type "text/html"
+                       :href (str "http://" (*config* :base-url) "/")}]
+               [:link {:rel "self"
+                       :type "application/atom+xml"
+                       :href (str "http://" (*config* :base-url) "/"
+                                  (*config* :atom-filename))}]
+               [:id (*config* :uuid)]
+               [:updated (epoch-to-utc-timestamp latest-update)]
+               [:rights
+                (format
+                 "Copyright © %d, %s"
+                 (:year (get-year-month-day-millis (DateTime. latest-update)))
+                 (*config* :author-name))]
+               atom-entries]))))))
+
+(defn generate-indices [for-datetime max-root-articles]
+  (let [ymdm (get-year-month-day-millis for-datetime)
+        year (str (ymdm :year))
+        month (ymdm :month)
         sorted-archives (get-desc-sorted-archives)
+        target-month-archive (filter #(and (= year (:year %)) (= month (:month %)))
+                                     sorted-archives)
+        target-month-articles (archives-to-seq target-month-archive)
         archive-month-years (map #(select-keys % [:month :year])
                                  sorted-archives)
-        this-months-articles (archives-to-seq (vector (first sorted-archives)))
-        this-months-articles-asc (sort #(compare (%1 :publish-time)
-                                                 (%2 :publish-time))
-                                       this-months-articles)
+        target-month-articles-asc (sort #(compare (%1 :publish-time)
+                                                  (%2 :publish-time))
+                                        target-month-articles)
         all-articles (archives-to-seq sorted-archives)]
-    (if archive-month-years
-      (generate-index this-months-articles-asc
-                      (str (*config* :doc-root) "/" month "-" year)
-                      archive-month-years))
+    (generate-index target-month-articles-asc
+                    (str (*config* :doc-root) "/" month "-" year)
+                    target-month-archive)
     (generate-index (take max-root-articles all-articles) (*config* :doc-root)
-                    archive-month-years)))
+                    archive-month-years)
+    (generate-atom (take max-root-articles all-articles) (*config* :doc-root)
+                   for-datetime)))
 
 (defn usage-and-exit [usage]
   (do
@@ -326,7 +441,7 @@
             (usage-and-exit usage)))
         (if revise
           (if (and slug html)
-            (if (revise-article month year slug (str "file:///" html) link)
+            (if (revise-article month year slug (str "file:///" html) link now)
               (generate-indices (datetime-from-month-year month year)
                                 (*config* :max-home-page-articles)))
             (do
@@ -339,5 +454,5 @@
               (if (publish-article now slug (str "file:///" html) link)
                 (generate-indices now (*config* :max-home-page-articles)))
               (do
-                (println "Publish requires slug and html.")
+                (println "Publish requires slug, and html.")
                 (usage-and-exit usage)))))))))
