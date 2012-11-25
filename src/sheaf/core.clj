@@ -120,7 +120,8 @@
   (*config* :archives-selector)   nil)
 
 (deftemplate index-template (fetch-content *template-url*)
-  [articles archive-month-years]
+  [page-title articles archive-month-years]
+  (*config* :page-title-selector)     (content page-title)
   (*config* :index-articles-selector) (apply content articles)
   (*config* :archive-list-selector)   (content (map link-model
                                                     archive-month-years)))
@@ -145,11 +146,12 @@
     (println "Failed to delete" filename)))
 
 (defn get-year-month-day-millis [datetime]
-  (hash-map :year      (.getYear datetime)
-            :month     (.getAsShortText (.monthOfYear datetime))
-            :month-num (.getMonthOfYear datetime)
-            :day       (.getDayOfMonth datetime)
-            :millis    (.getMillis datetime)))
+  (hash-map :year       (.getYear datetime)
+            :month      (.getAsShortText (.monthOfYear datetime))
+            :month-full (.getAsText (.monthOfYear datetime))
+            :month-num  (.getMonthOfYear datetime)
+            :day        (.getDayOfMonth datetime)
+            :millis     (.getMillis datetime)))
 
 (defn get-relative-path [month year slug]
   (str month "-" year "/" slug ".html"))
@@ -288,7 +290,7 @@
   (sort #(compare (%2 :datetime) (%1 :datetime))
         (map annotated-archive-from-file (dir-list *archive-root*))))
 
-(defn generate-index [articles target-dir archive-month-years]
+(defn generate-index [articles target-dir page-title archive-month-years]
   (if (empty? articles)
     (println "Not generating an empty index.")
     (let [article-urls (map #(str "file:///" (*config* :doc-root) "/"
@@ -298,7 +300,7 @@
                              article-contents)]
       (if (and (not (empty? article-nodes)) (not (empty? archive-month-years)))
         (try-write (str target-dir "/index.html")
-                   (apply str (index-template article-nodes archive-month-years)))
+                   (apply str (index-template page-title article-nodes archive-month-years)))
         (println "Not generating empty index.")))))
 
 (defn escaped-article-content-from-url [url]
@@ -384,6 +386,7 @@
   (let [ymdm (get-year-month-day-millis for-datetime)
         year (str (ymdm :year))
         month (ymdm :month)
+        month-full (ymdm :month-full)
         sorted-archives (get-desc-sorted-archives)
         target-month-archive (filter #(and (= year (:year %)) (= month (:month %)))
                                      sorted-archives)
@@ -396,8 +399,11 @@
         all-articles (archives-to-seq sorted-archives)]
     (generate-index target-month-articles-asc
                     (str (*config* :doc-root) "/" month "-" year)
+                    (str month-full " " year " - " (*config* :blog-title))
                     target-month-archive)
-    (generate-index (take max-root-articles all-articles) (*config* :doc-root)
+    (generate-index (take max-root-articles all-articles)
+                    (*config* :doc-root)
+                    (*config* :blog-title)
                     archive-month-years)
     (generate-atom (take max-root-articles all-articles) (*config* :doc-root)
                    for-datetime)))
