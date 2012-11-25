@@ -109,14 +109,15 @@
 
 (deftemplate article-template (fetch-content *template-url*)
   [article title datetime permalink link]
-  (*config* :articles-selector)  (apply content article)
-  (*config* :title-selector)     (content title)
-  (*config* :title-selector)     (set-attr :href (if link link permalink))
-  (*config* :title-selector)     (set-attr :id (if link "link" "permalink"))
-  (*config* :time-selector)      (content (long-form-date datetime))
-  (*config* :time-selector)      (set-attr "datetime" (.toString datetime))
-  (*config* :permalink-selector) (set-attr "href" permalink)
-  (*config* :archives-selector)  nil)
+  (*config* :articles-selector)   (apply content article)
+  (*config* :page-title-selector) (content title)
+  (*config* :title-selector)      (content title)
+  (*config* :title-selector)      (set-attr :href (if link link permalink))
+  (*config* :title-selector)      (set-attr :id (if link "link" "permalink"))
+  (*config* :time-selector)       (content (long-form-date datetime))
+  (*config* :time-selector)       (set-attr "datetime" (.toString datetime))
+  (*config* :permalink-selector)  (set-attr "href" permalink)
+  (*config* :archives-selector)   nil)
 
 (deftemplate index-template (fetch-content *template-url*)
   [articles archive-month-years]
@@ -370,7 +371,7 @@
                        :type "application/atom+xml"
                        :href (str "http://" (*config* :base-url) "/"
                                   (*config* :atom-filename))}]
-               [:id (*config* :uuid)]
+               [:id (*config* :feed-id)]
                [:updated (epoch-to-utc-timestamp latest-update)]
                [:rights
                 (format
