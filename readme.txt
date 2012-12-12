@@ -33,7 +33,6 @@ your home directory. Here's an example;
                           :articles-selector [:section :article :body]
                           :article-selector [:article]
                           :article-body-selector [:#articles :body]
-                          :input-title-selector [:title :> text-node]
                           :index-articles-selector [:#articles]
                           :title-selector [:article :h2 :a]
                           :time-selector [:time]

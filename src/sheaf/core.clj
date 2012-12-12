@@ -40,10 +40,11 @@
   (:use clojure.java.io)
   (:use clojure.tools.cli)
   (:use [clojure.data.json :only (json-str write-json read-json)])
-  (:use [net.cgrand.enlive-html :only (at deftemplate defsnippet content emit*
-                                       set-attr do-> first-child html-resource
-                                       select nth-of-type any-node text-node
-                                       html-content)])
+  (:use [markdown.core :only (md-to-html-string)])
+  (:use [net.cgrand.enlive-html :only
+         (at deftemplate defsnippet content emit* set-attr do->
+          first-child html-resource select nth-of-type any-node
+          text-node html-content)])
   (:use hiccup.core)
   (:use hiccup.page)
   (:use hiccup.util))
@@ -164,13 +165,11 @@
         ((first remainder) :publish-time)
         (recur (rest remainder))))))
 
-(defn write-article [relative-path article-content publish-time link archive slug]
+(defn write-article [relative-path article-content title publish-time link archive slug]
   (try-write (str (*config* :doc-root) "/" relative-path)
              (apply str (article-template
-                         (select article-content
-                                 (*config* :input-article-selector))
-                         (select article-content
-                                 (*config* :input-title-selector))
+                         article-content
+                         title
                          publish-time
                          (str "/" relative-path)
                          link))))
@@ -183,11 +182,7 @@
         true)
       (println "Failed to delete" target-filename))))
 
-(defn get-encoded-title-from-draft-content [content]
-  (hexify (apply str (select content
-                     (*config* :input-title-selector)))))
-
-(defn publish-article [now slug article-url link]
+(defn publish-article [now slug title article-content link]
   (let [ymdm (get-year-month-day-millis now)
         year (ymdm :year)
         month (ymdm :month)
@@ -197,32 +192,30 @@
     (if (article-exists? archive slug)
       (println "Can't publish an article that already exists.")
       (let [relative-path (get-relative-path month year slug)
-            article-content (fetch-content article-url)
-            encoded-title (get-encoded-title-from-draft-content article-content)]
+            encoded-title (hexify title)]
         (try-write archive-filename
                    (json-str (create-metadata archive
                                               {:slug slug
                                                :publish-time millis
                                                :relative-path relative-path
                                                :title encoded-title})))
-        (write-article relative-path article-content now link archive slug)
+        (write-article relative-path article-content title now link archive slug)
         true))))
 
-(defn revise-article [month year slug article-url link now]
+(defn revise-article [month year slug title article-content link now]
   (let [archive-filename (get-archive-filename month year)
         archive (read-archive archive-filename)
         revision-time (:millis (get-year-month-day-millis now))]
     (if (article-exists? archive slug)
       (let [orig-metadata (get-article-metadata archive slug)
             relative-path (get-relative-path month year slug)
-            article-content (fetch-content article-url)
-            encoded-title (get-encoded-title-from-draft-content article-content)
+            encoded-title (hexify title)
             updated-archive (create-metadata (delete-metadata archive slug)
                                              (assoc orig-metadata
                                                :revision-time revision-time
                                                :title encoded-title))]
         (try-write archive-filename (json-str updated-archive))
-        (write-article relative-path article-content (get-publish-time archive slug)
+        (write-article relative-path article-content title (get-publish-time archive slug)
                        link archive slug)
         true)
       (println "Can't revise an article that doesn't exist."))))
@@ -408,6 +401,18 @@
     (generate-atom (take max-root-articles all-articles) (*config* :doc-root)
                    for-datetime)))
 
+(defn get-article-content [input-filename]
+  (let [uri (str "file://" input-filename)]
+    ;; If the input looks like it contains markdown, convert it to html
+    (if (re-seq #"^*.md$" uri)
+      (let [markdown (md-to-html-string (slurp (input-stream (java.net.URL. uri))))]
+        (-> markdown
+            (.getBytes "UTF-8")
+            (java.io.ByteArrayInputStream.)
+            (java.io.InputStreamReader.)
+            html-resource))
+      (select (fetch-content uri) (*config* :input-article-selector)))))
+
 (defn usage-and-exit [usage]
   (do
     (println usage)
@@ -422,20 +427,23 @@
              ["-m" "--month"   "Month an article to revise was published in"]
              ["-y" "--year"    "Year an article to revise was published in"]
              ["-s" "--slug"    "Article slug, ex: my-article-title"]
-             ["-l" "--link"    (str "Title is an offsite link, ex: "
+             ["-t" "--title"   "The article's title"]
+             ["-l" "--link"    (str "Title links externally link, ex: "
                                     "\"http://www.noaa.gov\"")]
-             ["-h" "--html"    (str "File containing html article, ex: "
-                                    "path/to/article.html")])
-        now (DateTime.)]
-    (let [publish (options :publish)
-          revise (options :revise)
-          delete (options :delete)
-          month (options :month)
-          year (options :year)
-          slug (options :slug)
-          link (options :link)
-          html (options :html)
-          config (options :config)]
+             ["-a" "--article" (str "File containing an html or markdown article, "
+                                    "ex: path/to/article.html -or- "
+                                    "path/to/another-article.md")])
+        now (DateTime.)
+        publish (options :publish)
+        revise (options :revise)
+        delete (options :delete)
+        month (options :month)
+        year (options :year)
+        slug (options :slug)
+        title (options :title)
+        link (options :link)
+        article (options :article)
+        config (options :config)]
       (if (not (or publish revise delete))
           (usage-and-exit usage))
       (if delete
@@ -447,19 +455,18 @@
             (println "Delete requires options slug, month and year.")
             (usage-and-exit usage)))
         (if revise
-          (if (and slug html)
-            (if (revise-article month year slug (str "file:///" html) link now)
+          (if (and slug title article)
+            (if (revise-article month year slug title (get-article-content article) link now)
               (generate-indices (datetime-from-month-year month year)
                                 (*config* :max-home-page-articles)))
             (do
-              (println (str "Revise requires slug, html, month and year. "
-                            "If you're revising a link post, include the "
-                            "link option, too."))
+              (println (str "Revise requires slug, title, article, month and year. "
+                            "If you're revising a link post, include the link option, too. "))
               (usage-and-exit usage)))
           (if publish
-            (if (and slug html)
-              (if (publish-article now slug (str "file:///" html) link)
+            (if (and slug title article)
+              (if (publish-article now slug title (get-article-content article) link)
                 (generate-indices now (*config* :max-home-page-articles)))
               (do
-                (println "Publish requires slug, and html.")
-                (usage-and-exit usage)))))))))
+                (println "Publish requires slug, title and article.")
+                (usage-and-exit usage))))))))
