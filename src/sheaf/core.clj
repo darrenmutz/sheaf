@@ -32,6 +32,7 @@
       :see-also
       [["https://github.com/darrenmutz/sheaf" "Source code"]]}
   sheaf.core
+  (:import com.petebevin.markdown.MarkdownProcessor)
   (:import org.joda.time.DateTime)
   (:import org.joda.time.DateTimeZone)
   (:import org.joda.time.format.DateTimeFormatterBuilder)
@@ -40,7 +41,6 @@
   (:use clojure.java.io)
   (:use clojure.tools.cli)
   (:use [clojure.data.json :only (json-str write-json read-json)])
-  (:use [markdown.core :only (md-to-html-string)])
   (:use [net.cgrand.enlive-html :only
          (at deftemplate defsnippet content emit* set-attr do->
           first-child html-resource select nth-of-type any-node
@@ -405,7 +405,7 @@
   (let [uri (str "file://" input-filename)]
     ;; If the input looks like it contains markdown, convert it to html
     (if (re-seq #"^*.md$" uri)
-      (let [markdown (md-to-html-string (slurp (input-stream (java.net.URL. uri))))]
+      (let [markdown (.markdown (MarkdownProcessor.) (slurp (input-stream (java.net.URL. uri))))]
         (-> markdown
             (.getBytes "UTF-8")
             (java.io.ByteArrayInputStream.)
