@@ -112,6 +112,7 @@
   "Convert triple periods to precomposed elipsis glyphs."
   [s]
   (clojure.string/replace #"\.\.\." "&#8230;"))
+
 (defn long-dashes
   "Convert all single dashes to en dashes and double dashes to em dashes."
   [s]
