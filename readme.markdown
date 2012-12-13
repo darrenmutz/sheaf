@@ -31,9 +31,17 @@ supported.
     -s, --slug                            Article slug, ex: my-article-title
     -t, --title                           The article's title
     -l, --link                            Title links externally link, ex: "http://www.noaa.gov"
-    -a, --article                         File containing an html or markdown article, ex: path/to/article.html -or- path/to/another-article.md
+    -a, --article                         File containing an article written in markdown or HTML,
+                                          ex: path/to/article.html or path/to/another-article.md.
+                                          Markdown articles are styled typographically. For example,
+                                          quotes and dashes in markdown input are, respectively,
+                                          converted to curly and long versions in an opinionated
+                                          way. HTML articles are considered raw and not similarly
+                                          styled.
+    -w, --no-watch, --watch      false    Optionally watch an input while revising.
+    -h, --help                            Display usage.
 
-Sheaf expects configuration to be located in a file called '.sheaf' in
+Sheaf expects its configuration to appear in a file called '.sheaf' in
 your home directory. Here's an example;
 
     (def ^:dynamic *config* { :blog-title "A Decade Removed"
