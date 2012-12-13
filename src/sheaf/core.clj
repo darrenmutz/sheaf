@@ -461,17 +461,16 @@
              ["-y" "--year"    "Year an article to revise was published in"]
              ["-s" "--slug"    "Article slug, ex: my-article-title"]
              ["-t" "--title"   "The article's title"]
-             ["-l" "--link"    (str "Title links externally link, ex: "
-                                    "\"http://www.noaa.gov\"")]
-             ["-a" "--article" (str "File containing an article written in markdown or HTML, "
-                                    "ex: path/to/article.html or "
-                                    "path/to/another-article.md. Markdown articles are
-                                     styled typographically. For example, quotes and dashes
-                                     in markdown input are, respectively, converted
-                                     to curly and long versions in an opinionated
-                                     way. HTML articles are considered raw and not similarly
-                                     styled.")]
-             ["-w" "--watch"   "Optionally watch an input while revising."])
+             ["-l" "--link"    "Title links externally link, ex: \"http://www.noaa.gov\""]
+             ["-a" "--article" "File containing an article written in markdown or HTML, 
+                                       ex: path/to/article.html or path/to/another-article.md.
+                                       Markdown articles are styled typographically. For example,
+                                       quotes and dashes in markdown input are, respectively,
+                                       converted to curly and long versions in an opinionated
+                                       way. HTML articles are considered raw and not similarly
+                                       styled."]
+             ["-w" "--watch"   "Optionally watch an input while revising." :flag true]
+             ["-h" "--help"    "Display usage."])
         now (DateTime.)
         publish (options :publish)
         revise (options :revise)
@@ -482,8 +481,9 @@
         title (options :title)
         link (options :link)
         article (options :article)
-        config (options :config)]
-      (if (not (or publish revise delete))
+        watch (options :watch)
+        help (options :help)]
+      (if (not (or publish revise delete help))
           (usage-and-exit usage))
       (if delete
         (if (and slug month year)
@@ -495,9 +495,17 @@
             (usage-and-exit usage)))
         (if revise
           (if (and slug title article)
-            (if (revise-article month year slug title (get-article-content article) link now)
-              (generate-indices (datetime-from-month-year month year)
-                                (*config* :max-home-page-articles)))
+            (loop [previous-modified 0]
+              (let [current-modified (.lastModified (java.io.File. article))]
+                (if (not (= previous-modified current-modified))
+                  (do
+                    (if (revise-article month year slug title (get-article-content article) link now)
+                      (generate-indices (datetime-from-month-year month year)
+                                        (*config* :max-home-page-articles)))
+                    (if watch (recur current-modified)))
+                  (do
+                    (Thread/sleep 200)
+                    (recur previous-modified)))))
             (do
               (println (str "Revise requires slug, title, article, month and year. "
                             "If you're revising a link post, include the link option, too. "))
