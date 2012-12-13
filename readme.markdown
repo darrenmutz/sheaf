@@ -1,5 +1,23 @@
-Sheaf is a static blogging engine that accepts html- or
-markdown-formatted files as input.
+Sheaf is a static (or baked) blogging engine. This means the output of
+the engine is a collection of static html that can be served rapidly
+by a web server like Apache running on hardware with modest resources.
+The primary tradeoff is that dynamic behaviors like comments aren't
+supported.
+
+# Features
+
+* Publish, revise and delete markdown or HTML articles in the markup
+  of your choice, as expressed by an HTML template you provide.
+* Organize published articles hierarchically by year and month.
+* Generate chronologically ordered archives for each month and year
+  articles are published in.
+* Generate a root object (index.html) containing recent articles in
+  reverse chronological order.
+* Generate a blog feed in the Atom Syndication Format.
+* Perform typographic transformations to markdown articles (e.g.,
+  curly quotes, long dashes and elipses).
+* Optionally watch an article draft and publish revisions live for
+  proofreading articles as they will appear to your readers.
 
 # Usage
 
@@ -40,3 +58,11 @@ your home directory. Here's an example;
                               :archive-list-selector [:.archive-list]
                               :doc-root "/path-to-output-htdocs"
                               :max-home-page-articles 20 })
+
+# Caveats
+
+Sheaf doesn't differentiate between drafts and final published
+articles. To avoid a confusing experience for your readers it is
+recommended that you publish to a non-public (or local) document root
+while an article is being revised.
+
