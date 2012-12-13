@@ -6,7 +6,7 @@
                  [joda-time "2.0"]
                  [lancet "1.0.0"]
                  [org.apache.lucene/lucene-core "3.0.2"]
-                 [org.clojars.nakkaya/markdownj "1.0.2b4"]
+                 [org.markdownj/markdownj "0.3.0-1.0.2b4"]
                  [org.clojure/clojure "1.4.0"]
                  [org.clojure/data.json "0.1.1"]
                  [org.clojure/tools.cli "0.2.1"]]
