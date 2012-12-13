@@ -108,6 +108,34 @@
         (content (str month " " year))
         (set-attr :href (str "/" month "-" year))))
 
+(defn elipsis-glyphs
+  "Convert triple periods to precomposed elipsis glyphs."
+  [s]
+  (clojure.string/replace #"\.\.\." "&#8230;"))
+(defn long-dashes
+  "Convert all single dashes to en dashes and double dashes to em dashes."
+  [s]
+  (-> s
+      (clojure.string/replace #"--" "&#8212;")
+      (clojure.string/replace #"-" "&#8211;")))
+
+(defn curly-single-quote
+  "Naively convert all single quotes to right single quotation marks,
+  as though all single quotation marks appear in an English
+  contraction or possessive. Ignores matching and all other context."
+  [s]
+  (clojure.string/replace s #"'" "&#8217;"))
+
+(defn smart-quote
+  "Naive smart quoter. Turns typewriter double quotes into curly
+   matched double quotes on a best effort basis. Assumes all double
+   quotes should be transformed and that they appear perfectly
+   balanced in the input. No attempt is made to reason about the
+   interation with existing curly quotes."
+  [s]
+  (let [tokens (clojure.string/split s #"\"")]
+    (apply str (map #(%1 %2) (cycle [identity #(str "&#8220;" % "&#8221;")]) tokens))))
+
 (deftemplate article-template (fetch-content *template-url*)
   [article title datetime permalink link]
   (*config* :articles-selector)   (apply content article)
@@ -407,10 +435,14 @@
     (if (re-seq #"^*.md$" uri)
       (let [markdown (.markdown (MarkdownProcessor.) (slurp (input-stream (java.net.URL. uri))))]
         (-> markdown
+            smart-quote
+            curly-single-quote
+            long-dashes
             (.getBytes "UTF-8")
             (java.io.ByteArrayInputStream.)
             (java.io.InputStreamReader.)
-            html-resource))
+            html-resource
+            ))
       (select (fetch-content uri) (*config* :input-article-selector)))))
 
 (defn usage-and-exit [usage]
@@ -430,9 +462,15 @@
              ["-t" "--title"   "The article's title"]
              ["-l" "--link"    (str "Title links externally link, ex: "
                                     "\"http://www.noaa.gov\"")]
-             ["-a" "--article" (str "File containing an html or markdown article, "
-                                    "ex: path/to/article.html -or- "
-                                    "path/to/another-article.md")])
+             ["-a" "--article" (str "File containing an article written in markdown or HTML, "
+                                    "ex: path/to/article.html or "
+                                    "path/to/another-article.md. Markdown articles are
+                                     styled typographically. For example, quotes and dashes
+                                     in markdown input are, respectively, converted
+                                     to curly and long versions in an opinionated
+                                     way. HTML articles are considered raw and not similarly
+                                     styled.")]
+             ["-w" "--watch"   "Optionally watch an input while revising."])
         now (DateTime.)
         publish (options :publish)
         revise (options :revise)
