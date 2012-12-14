@@ -114,11 +114,12 @@
   (clojure.string/replace #"\.\.\." "&#8230;"))
 
 (defn long-dashes
-  "Convert all single dashes to en dashes and double dashes to em dashes."
+  "Convert all double dashes to en dashes and triple dashes to em
+  dashes. Leave single dashes alone."
   [s]
   (-> s
-      (clojure.string/replace #"--" "&#8212;")
-      (clojure.string/replace #"-" "&#8211;")))
+      (clojure.string/replace #"---" "&#8212;")
+      (clojure.string/replace #"--" "&#8211;")))
 
 (defn curly-single-quote
   "Naively convert all single quotes to right single quotation marks,
