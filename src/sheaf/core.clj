@@ -443,8 +443,7 @@
             (.getBytes "UTF-8")
             (java.io.ByteArrayInputStream.)
             (java.io.InputStreamReader.)
-            html-resource
-            ))
+            html-resource))
       (select (fetch-content uri) (*config* :input-article-selector)))))
 
 (defn usage-and-exit [usage]
