@@ -132,8 +132,8 @@
   "Naive smart quoter. Turns typewriter double quotes into curly
    matched double quotes on a best effort basis. Assumes all double
    quotes should be transformed and that they appear perfectly
-   balanced in the input. No attempt is made to reason about the
-   interation with existing curly quotes."
+   balanced in the input. No attempt is made to reason about
+   interaction with existing curly quotes."
   [s]
   (let [tokens (clojure.string/split s #"\"")]
     (apply str (map #(%1 %2) (cycle [identity #(str "&#8220;" % "&#8221;")]) tokens))))
