@@ -136,7 +136,8 @@
    interaction with existing curly quotes."
   [s]
   (let [tokens (clojure.string/split s #"\"")]
-    (apply str (map #(%1 %2) (cycle [identity #(str "&#8220;" % "&#8221;")]) tokens))))
+    (apply str (map #(%1 %2) (cycle [identity #(str "&#8220;" % "&#8221;")])
+                    tokens))))
 
 (deftemplate article-template (fetch-content *template-url*)
   [article title datetime permalink link]
@@ -195,7 +196,8 @@
         ((first remainder) :publish-time)
         (recur (rest remainder))))))
 
-(defn write-article [relative-path article-content title publish-time link archive slug]
+(defn write-article [relative-path article-content title
+                     publish-time link archive slug]
   (try-write (str (*config* :doc-root) "/" relative-path)
              (apply str (article-template
                          article-content
@@ -245,8 +247,9 @@
                                                :revision-time revision-time
                                                :title encoded-title))]
         (try-write archive-filename (json-str updated-archive))
-        (write-article relative-path article-content title (get-publish-time archive slug)
-                       link archive slug)
+        (write-article relative-path article-content title
+                       (get-publish-time archive slug) link
+                       archive slug)
         true)
       (println "Can't revise an article that doesn't exist."))))
 
@@ -323,7 +326,8 @@
                              article-contents)]
       (if (and (not (empty? article-nodes)) (not (empty? archive-month-years)))
         (try-write (str target-dir "/index.html")
-                   (apply str (index-template page-title article-nodes archive-month-years)))
+                   (apply str (index-template page-title article-nodes
+                                              archive-month-years)))
         (println "Not generating empty index.")))))
 
 (defn escaped-article-content-from-url [url]
@@ -435,7 +439,8 @@
   (let [uri (str "file://" input-filename)]
     ;; If the input looks like it contains markdown, convert it to html
     (if (re-seq #"^*.md$" uri)
-      (let [markdown (.markdown (MarkdownProcessor.) (slurp (input-stream (java.net.URL. uri))))]
+      (let [markdown (.markdown (MarkdownProcessor.)
+                                (slurp (input-stream (java.net.URL. uri))))]
         (-> markdown
             smart-quote
             curly-single-quote
@@ -493,7 +498,8 @@
               (let [current-modified (.lastModified (java.io.File. article))]
                 (if (not (= previous-modified current-modified))
                   (do
-                    (if (revise-article month year slug title (get-article-content article) link now)
+                    (if (revise-article month year slug title
+                                        (get-article-content article) link now)
                       (generate-indices (datetime-from-month-year month year)
                                         (*config* :max-home-page-articles)))
                     (if watch (recur current-modified)))
@@ -501,8 +507,8 @@
                     (Thread/sleep 200)
                     (recur previous-modified)))))
             (do
-              (println (str "Revise requires slug, title, article, month and year. "
-                            "If you're revising a link post, include the link option, too. "))
+              (println (str "Revise requires slug, title, article, month and year. If "
+                            "you're revising a link post, include the link option, too."))
               (usage-and-exit usage)))
           (if publish
             (if (and slug title article)
