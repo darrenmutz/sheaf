@@ -57,6 +57,8 @@
 (def ^:dynamic *archive-root*
   (str (*config* :sheaf-root) "/" (*config* :archive-dir)))
 
+(def ^:dynamic *smart-quote* true)
+
 (defn create-metadata [archive article]
   (sort #(compare (%2 :publish-time) (%1 :publish-time)) (cons article archive)))
 
@@ -435,14 +437,15 @@
     (generate-atom (take max-root-articles all-articles) (*config* :doc-root)
                    for-datetime)))
 
-(defn get-article-content [input-filename]
+(defn get-article-content [input-filename dumb-quotes]
   (let [uri (str "file://" input-filename)]
     ;; If the input looks like it contains markdown, convert it to html
     (if (re-seq #"^*.md$" uri)
       (let [markdown (.markdown (MarkdownProcessor.)
-                                (slurp (input-stream (java.net.URL. uri))))]
+                                (slurp (input-stream (java.net.URL. uri))))
+            double-quoter (if dumb-quotes identity smart-quote)]
         (-> markdown
-            smart-quote
+            double-quoter
             curly-single-quote
             long-dashes
             (.getBytes "UTF-8")
@@ -459,17 +462,18 @@
 (defn -main [& args]
   (let [[options args usage]
         (cli args
-             ["-p" "--publish" "Publish an article" :flag true]
-             ["-r" "--revise"  "Revise an article" :flag true]
-             ["-d" "--delete"  "Delete an article" :flag true]
-             ["-m" "--month"   "Month an article to revise was published in"]
-             ["-y" "--year"    "Year an article to revise was published in"]
-             ["-s" "--slug"    "Article slug, ex: my-article-title"]
-             ["-t" "--title"   "The article's title"]
-             ["-l" "--link"    "Title links externally link, ex: \"http://www.noaa.gov\""]
-             ["-a" "--article" "File containing an article written in markdown or HTML"]
-             ["-w" "--watch"   "Optionally watch an input while revising" :flag true]
-             ["-h" "--help"    "Display usage"])
+             ["-p" "--publish"    "Publish an article" :flag true]
+             ["-r" "--revise"     "Revise an article" :flag true]
+             ["-d" "--delete"     "Delete an article" :flag true]
+             ["-m" "--month"      "Month an article to revise was published in"]
+             ["-y" "--year"       "Year an article to revise was published in"]
+             ["-s" "--slug"       "Article slug, ex: my-article-title"]
+             ["-t" "--title"      "The article's title"]
+             ["-l" "--link"       "Title links externally link, ex: \"http://www.noaa.gov\""]
+             ["-a" "--article"    "File containing an article written in markdown or HTML"]
+             ["-w" "--watch"      "Optionally watch an input while revising" :flag true]
+             ["-b" "--dumbquotes" "Disable smart quoting" :flag true]
+             ["-h" "--help"       "Display usage"])
         now (DateTime.)
         publish (options :publish)
         revise (options :revise)
@@ -481,6 +485,7 @@
         link (options :link)
         article (options :article)
         watch (options :watch)
+        dumb-quotes (options :dumbquotes)
         help (options :help)]
       (if (not (or publish revise delete help))
           (usage-and-exit usage))
@@ -499,7 +504,8 @@
                 (if (not (= previous-modified current-modified))
                   (do
                     (if (revise-article month year slug title
-                                        (get-article-content article) link now)
+                                        (get-article-content article dumb-quotes)
+                                        link now)
                       (generate-indices (datetime-from-month-year month year)
                                         (*config* :max-home-page-articles)))
                     (if watch (recur current-modified)))
@@ -512,7 +518,9 @@
               (usage-and-exit usage)))
           (if publish
             (if (and slug title article)
-              (if (publish-article now slug title (get-article-content article) link)
+              (if (publish-article now slug title
+                                   (get-article-content article dumb-quotes)
+                                   link)
                 (generate-indices now (*config* :max-home-page-articles)))
               (do
                 (println "Publish requires slug, title and article.")
