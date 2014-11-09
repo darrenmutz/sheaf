@@ -1,4 +1,4 @@
-;; Copyright (c) 2012, Darren Mutz
+;; Copyright (c) 2012-2014, Darren Mutz
 ;; All rights reserved.
 ;;
 ;; Redistribution and use in source and binary forms, with or without
